@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="pt-PT" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeGuard Elite - Rincon Edition</title>
+   
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+   
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600&family=Outfit:wght@400;500;700;800&display=swap" rel="stylesheet">
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+
+    <!-- jsPDF & AutoTable -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+    
+    <!-- FullCalendar JS + Locales -->
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales-all.global.min.js"></script>
+
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --bg-sidebar: #ffffff;
+            --bg-surface: #ffffff;
+            --bg-glass: rgba(255, 255, 255, 0.85);
+            --border-color: rgba(0, 0, 0, 0.08);
+           
+            --rincon-gold: #f59e0b;
+            --rincon-gold-hover: #d97706;
+           
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+           
+            --shadow-glass: 0 4px 20px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-bs-theme="dark"] {
+            --bg-body: #09090b;
+            --bg-sidebar: #09090b;
+            --bg-surface: #18181b;
+            --bg-glass: linear-gradient(180deg, rgba(39, 39, 42, 0.6) 0%, rgba(24, 24, 27, 0.6) 100%);
+            --border-color: rgba(255, 255, 255, 0.08);
+           
+            --text-main: #fafafa;
+            --text-muted: #a1a1aa;
+           
+            --shadow-glass: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        h1, h2, h3, h4, .font-heading { font-family: 'Outfit', sans-serif; letter-spacing: -0.02em; }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-body); }
+        ::-webkit-scrollbar-thumb { background: #64748b; border-radius: 10px; opacity: 0.5; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--rincon-gold); }
+
+        .glass-panel { background: var(--bg-glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--border-color); box-shadow: var(--shadow-glass); }
+        .card-custom { background-color: var(--bg-surface); border: 1px solid var(--border-color); transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.05); cursor: pointer; }
+        .card-custom:hover { border-color: var(--rincon-gold); transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(245, 158, 11, 0.15); }
+
+        .sidebar { width: 280px; background-color: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; z-index: 1030; transition: background-color 0.3s ease; }
+        .nav-link-custom { color: var(--text-muted); padding: 12px 16px; border-radius: 12px; display: flex; align-items: center; gap: 12px; transition: all 0.2s; text-decoration: none; font-weight: 600; font-size: 0.9rem; letter-spacing: 0.05em; border-left: 3px solid transparent; }
+        .nav-link-custom:hover { color: var(--text-main); background-color: var(--border-color); }
+        .nav-link-custom.active { background-color: rgba(245, 158, 11, 0.15); border-left-color: var(--rincon-gold); }
+        [data-bs-theme="dark"] .nav-link-custom.active { color: white; }
+        .nav-icon { width: 20px; height: 20px; }
+
+        .text-gold { color: var(--rincon-gold) !important; }
+        .bg-gold { background-color: var(--rincon-gold) !important; color: black; }
+        .btn-gold { background-color: var(--rincon-gold); color: black; font-weight: 700; border: none; box-shadow: 0 0 15px rgba(245, 158, 11, 0.2); transition: all 0.2s; }
+        .btn-gold:hover { background-color: var(--rincon-gold-hover); color: black; box-shadow: 0 0 20px rgba(245, 158, 11, 0.4); }
+
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; box-shadow: 0 0 8px currentColor; }
+        .theme-toggle { cursor: pointer; padding: 8px; border-radius: 50%; transition: background-color 0.3s; color: var(--text-muted); }
+        .theme-toggle:hover { background-color: var(--border-color); color: var(--text-main); }
+
+        .modal-content { background-color: var(--bg-surface); border: 1px solid var(--rincon-gold); color: var(--text-main); }
+        .modal-header { border-bottom: 1px solid var(--border-color); }
+        .modal-footer { border-top: 1px solid var(--border-color); }
+        .form-control, .form-select { background-color: var(--bg-body); border: 1px solid var(--border-color); color: var(--text-main); }
+        .form-control:focus, .form-select:focus { background-color: var(--bg-body); border-color: var(--rincon-gold); color: var(--text-main); box-shadow: none; }
+        .form-control:disabled, .form-control[readonly] { background-color: var(--border-color); opacity: 0.7; }
+        
+        /* Dropdown Fixes */
+        .dropdown-toggle::after { display: none !important; }
+        .dropdown-menu { z-index: 1050; }
+
+        /* FullCalendar Customization */
+        .fc-theme-standard td, .fc-theme-standard th { border-color: var(--border-color) !important; }
+        .fc .fc-toolbar-title { color: var(--text-main); font-family: 'Outfit', sans-serif; font-weight: 700; text-transform: capitalize;}
+        .fc-daygrid-day-number { color: var(--text-muted); text-decoration: none;}
+        .fc .fc-button-primary { background-color: var(--bg-surface); border-color: var(--border-color); color: var(--text-main); text-transform: capitalize; }
+        .fc .fc-button-primary:hover { background-color: var(--rincon-gold); color: black; border-color: var(--rincon-gold); }
+        .fc .fc-button-primary:not(:disabled).fc-button-active { background-color: var(--rincon-gold); color: black; border-color: var(--rincon-gold); }
+
+        /* Vue Transitions */
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        .list-enter-active, .list-leave-active { transition: all 0.4s ease; }
+        .list-enter-from, .list-leave-to { opacity: 0; transform: translateY(20px); }
+
+        #globalLoader { position: fixed; top: 0; left: 0; width: 100%; height: 4px; background-color: var(--rincon-gold); z-index: 9999; animation: loadingBar 1s infinite linear; }
+        @keyframes loadingBar { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+        /* Módulos Animação Loading */
+        .loader-container { position: relative; width: 140px; height: 140px; display: flex; align-items: center; justify-content: center; margin-bottom: 2rem; }
+        .shield-icon-loader { width: 60px; height: 60px; color: var(--rincon-gold); z-index: 10; animation: pulse-shield 2s ease-in-out infinite; }
+        .loading-ring { position: absolute; width: 100%; height: 100%; border: 3px solid transparent; border-top-color: var(--rincon-gold); border-right-color: var(--rincon-gold); border-radius: 50%; animation: spin-ring 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite; }
+        .loading-ring.inner { width: 65%; height: 65%; border-top-color: var(--text-muted); border-right-color: transparent; border-left-color: var(--text-muted); animation: spin-ring 1.8s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite reverse; }
+        .loading-text { animation: blink-text 1.5s infinite both; }
+        
+        @keyframes pulse-shield { 0%, 100% { transform: scale(1); filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.3)); } 50% { transform: scale(1.1); filter: drop-shadow(0 0 25px rgba(245, 158, 11, 0.8)); } }
+        @keyframes spin-ring { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes blink-text { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .progress-container { width: 300px; background: var(--bg-surface); border-radius: 20px; overflow: hidden; border: 1px solid var(--border-color); height: 6px; margin-top: 1rem; position: relative;}
+        .progress-bar-fill { height: 100%; background: var(--rincon-gold); border-radius: 20px; transition: width 0.2s ease; }
+
+        .sub-nav-tabs { background: var(--bg-surface); padding: 4px; border-radius: 12px; border: 1px solid var(--border-color); display: inline-flex;}
+        .sub-nav-btn { padding: 8px 20px; border-radius: 8px; border: none; background: transparent; color: var(--text-muted); font-weight: 600; font-size: 0.85rem; transition: all 0.2s;}
+        .sub-nav-btn.active { background: var(--border-color); color: var(--text-main); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+
+        .avatar-initials { width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; background-color: var(--bg-body); color: var(--rincon-gold); border: 2px solid var(--border-color); flex-shrink: 0; }
+
+        @media (max-width: 991.98px) {
+            .sidebar { position: fixed; top: 0; bottom: 0; left: 0; transform: translateX(-100%); transition: transform 0.3s ease-in-out; }
+            .sidebar.show { transform: translateX(0); }
+            .content-wrapper { margin-left: 0 !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="vh-100 overflow-hidden">
+    <transition name="fade" mode="out-in">
+        
+        <!-- ================== TELA DE CARREGAMENTO INICIAL ================== -->
+        <div v-if="isInitialLoading" key="loading" class="d-flex flex-column align-items-center justify-content-center h-100 w-100" style="background-color: var(--bg-body); z-index: 9999;">
+            <div v-if="isDarkMode" class="position-absolute top-50 start-50 translate-middle rounded-circle bg-warning opacity-10 blur-xl" style="width: 300px; height: 300px; filter: blur(80px); pointer-events: none;"></div>
+            
+            <div class="loader-container">
+                <div class="loading-ring"></div>
+                <div class="loading-ring inner"></div>
+                <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shield-icon-loader text-gold pulse-logo">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                    <path d="m9 12 2 2 4-4"/>
+                </svg>
+            </div>
+            
+            <h2 class="font-heading fw-bold text-main mb-2" style="letter-spacing: 1px;">SAFEGUARD <span class="text-gold">PRO</span></h2>
+            
+            <div class="progress-container shadow-sm">
+                <div class="progress-bar-fill" :style="{ width: loadingProgress + '%' }"></div>
+            </div>
+            
+            <div class="d-flex justify-content-between w-100 mt-2" style="max-width: 300px;">
+                <span class="text-gold small fw-bold text-uppercase loading-text" style="letter-spacing: 2px; font-size: 0.70rem;">{{ loadingMessage }}</span>
+                <span class="text-muted small fw-bold font-monospace">{{ Math.floor(loadingProgress) }}%</span>
+            </div>
+        </div>
+
+        <!-- ================== APLICAÇÃO PRINCIPAL ================== -->
+        <div v-else key="main-app" class="d-flex h-100 w-100 position-relative">
+            <div v-if="isLoading" id="globalLoader"></div>
+            
+            <!-- Mobile Header -->
+            <div class="d-lg-none fixed-top bg-body border-bottom border-secondary border-opacity-25 p-3 d-flex justify-content-between align-items-center" style="z-index: 1040;">
+                <div class="d-flex align-items-center gap-2">
+                    <i data-lucide="shield-check" class="text-gold" style="width: 24px;"></i>
+                    <span class="font-heading fw-bold text-main">SAFEGUARD <span class="text-gold">PRO</span></span>
+                </div>
+                <div class="d-flex gap-2">
+                     <button class="btn btn-sm btn-outline-secondary border-0" @click="toggleTheme" type="button">
+                         <span :key="'theme-mob-' + isDarkMode"><i :data-lucide="isDarkMode ? 'sun' : 'moon'"></i></span>
+                     </button>
+                    <button class="btn btn-sm btn-outline-secondary" @click="toggleSidebar" type="button"><i data-lucide="menu"></i></button>
+                </div>
+            </div>
+
+            <div v-if="mobileMenuOpen" class="d-lg-none position-fixed top-0 start-0 w-100 h-100 bg-black bg-opacity-75" style="z-index: 1029;" @click="toggleSidebar"></div>
+
+            <!-- Sidebar -->
+            <aside :class="['sidebar', { 'show': mobileMenuOpen }]">
+                <div class="p-4 d-flex align-items-center justify-content-center border-bottom" style="height: 80px; border-color: var(--border-color) !important;">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="bg-body p-2 rounded border" style="border-color: var(--border-color) !important;">
+                            <i data-lucide="shield-check" class="text-gold" style="width: 28px; height: 28px;"></i>
+                        </div>
+                        <div class="d-none d-lg-block">
+                            <h5 class="m-0 font-heading fw-bold" style="color: var(--text-main);">SAFEGUARD</h5>
+                            <small class="text-gold fw-bold" style="letter-spacing: 2px; font-size: 0.7rem;">ELITE EDITION</small>
+                        </div>
+                    </div>
+                </div>
+
+                <nav class="flex-grow-1 p-3 d-flex flex-column gap-2">
+                    <a href="#" @click.prevent="switchView('dashboard')" :class="['nav-link-custom', { active: currentView === 'dashboard' }]"><i data-lucide="layout-grid" class="nav-icon"></i> DASHBOARD</a>
+                    <a href="#" @click.prevent="switchView('events')" :class="['nav-link-custom', { active: currentView === 'events' }]"><i data-lucide="map-pin" class="nav-icon"></i> LOCAIS / EVENTOS</a>
+                    <a href="#" @click.prevent="switchView('schedule')" :class="['nav-link-custom', { active: currentView === 'schedule' }]"><i data-lucide="table-2" class="nav-icon"></i> ESCALAS TÁTICAS</a>
+                    <a href="#" @click.prevent="switchView('guards')" :class="['nav-link-custom', { active: currentView === 'guards' }]"><i data-lucide="users" class="nav-icon"></i> EFETIVO</a>
+                </nav>
+
+                <div class="p-3 border-top" style="border-color: var(--border-color) !important; background-color: var(--bg-body);">
+                     <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+                        <span class="small fw-bold text-muted text-uppercase" style="font-size: 0.7rem;">Modo de Visualização</span>
+                        <div class="theme-toggle" @click="toggleTheme" title="Alternar Tema">
+                            <span :key="'theme-desk-' + isDarkMode"><i :data-lucide="isDarkMode ? 'sun' : 'moon'" style="width: 18px; height: 18px;"></i></span>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="rounded-circle border border-warning border-opacity-50 p-1">
+                            <img src="https://ui-avatars.com/api/?name=Admin+User&background=f59e0b&color=000" class="rounded-circle" width="36" height="36" alt="Admin">
+                        </div>
+                        <div>
+                            <div class="fw-bold font-heading" style="font-size: 0.9rem; color: var(--text-main);">Administrador</div>
+                            <div class="text-gold fw-bold" style="font-size: 0.7rem;">GESTOR GLOBAL</div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-grow-1 position-relative overflow-auto content-wrapper pt-5 pt-lg-0">
+                <div v-if="isDarkMode" class="position-fixed top-0 end-0 p-5 rounded-circle bg-warning opacity-10 blur-xl" style="width: 400px; height: 400px; filter: blur(100px); pointer-events: none;"></div>
+                
+                <div class="container-fluid p-4 p-lg-5 position-relative" style="z-index: 10;">
+                    <transition name="fade" mode="out-in">
+                        
+                        <!-- ================== VIEW: DASHBOARD ================== -->
+                        <div v-if="currentView === 'dashboard'" key="dashboard">
+                            <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-5 border-bottom pb-3" style="border-color: var(--border-color) !important;">
+                                <div>
+                                    <h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Visão Geral</h2>
+                                    <p class="mb-0" style="color: var(--text-muted);">Monitoramento da operação em tempo real.</p>
+                                </div>
+                            </div>
+
+                            <div class="row g-4 mb-5">
+                                <div class="col-12 col-md-4" @click="switchView('events')">
+                                    <div class="glass-panel p-4 rounded-3 h-100 card-custom d-flex flex-column align-items-center justify-content-center text-center">
+                                        <div class="p-3 rounded-circle bg-body border mb-3" style="border-color: var(--border-color) !important;"><i data-lucide="map-pin" class="text-info" style="width: 32px; height: 32px;"></i></div>
+                                        <h4 class="font-heading fw-bold mb-1" style="color: var(--text-main);">Locais & Eventos</h4>
+                                        <p class="small m-0" style="color: var(--text-muted);">Gerenciar postos fixos e eventos</p>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4" @click="switchView('guards')">
+                                    <div class="glass-panel p-4 rounded-3 h-100 card-custom d-flex flex-column align-items-center justify-content-center text-center">
+                                        <div class="p-3 rounded-circle bg-body border mb-3" style="border-color: var(--border-color) !important;"><i data-lucide="users" class="text-success" style="width: 32px; height: 32px;"></i></div>
+                                        <h4 class="font-heading fw-bold mb-1" style="color: var(--text-main);">Gestão de Efetivo</h4>
+                                        <p class="small m-0" style="color: var(--text-muted);">Atualizar vigilantes</p>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-4" @click="switchView('schedule')">
+                                    <div class="glass-panel p-4 rounded-3 h-100 card-custom d-flex flex-column align-items-center justify-content-center text-center">
+                                        <div class="p-3 rounded-circle bg-body border mb-3" style="border-color: var(--border-color) !important;"><i data-lucide="calendar-check" class="text-gold" style="width: 32px; height: 32px;"></i></div>
+                                        <h4 class="font-heading fw-bold mb-1" style="color: var(--text-main);">Escalas Táticas</h4>
+                                        <p class="small m-0" style="color: var(--text-muted);">Definir horários e turnos</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Resumo Hoje e Efetivo -->
+                            <div class="row g-4">
+                                <div class="col-12 col-lg-6">
+                                    <div class="glass-panel rounded-3 d-flex flex-column" style="height: 400px;">
+                                        <div class="p-4 border-bottom d-flex justify-content-between align-items-center" style="background-color: var(--bg-surface); border-color: var(--border-color) !important;">
+                                            <h5 class="font-heading fw-bold m-0 d-flex align-items-center gap-2" style="color: var(--text-main);"><span class="status-dot text-gold animate-pulse"></span> Turnos de Hoje</h5>
+                                            <span class="badge font-monospace" style="background-color: var(--bg-body); color: var(--text-muted); border: 1px solid var(--border-color);">{{ todayDate }}</span>
+                                        </div>
+                                        <div class="p-3 overflow-auto flex-grow-1">
+                                            <div v-if="shiftsToday.length === 0" class="text-center py-5" style="color: var(--text-muted);">Sem turnos agendados para hoje.</div>
+                                            <transition-group name="list">
+                                                <div v-for="shift in shiftsToday" :key="shift.ID_Escala" class="card-custom p-3 mb-2 rounded-3 d-flex justify-content-between align-items-center">
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <div class="avatar-initials shadow-sm">{{ getInitials(getGuardName(shift.ID_Funcionario)) }}</div>
+                                                        <div>
+                                                            <div class="fw-bold fs-6" style="color: var(--text-main);">{{ getGuardName(shift.ID_Funcionario) }}</div>
+                                                            <div class="small fw-semibold mt-1" style="color: var(--text-muted);"><i data-lucide="map-pin" style="width: 12px; margin-right: 4px;"></i> {{ getLocationName(shift.ID_LocalEvento) }}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="text-end">
+                                                        <div class="font-monospace fw-bold bg-body px-3 py-2 rounded-pill shadow-sm" style="color: var(--rincon-gold); border: 1px solid var(--border-color);">{{ shift.Horario_Entrada }} - {{ shift.Horario_Saida }}</div>
+                                                    </div>
+                                                </div>
+                                            </transition-group>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="col-12 col-lg-6">
+                                    <div class="glass-panel rounded-3 d-flex flex-column" style="height: 400px;">
+                                        <div class="p-4 border-bottom" style="background-color: var(--bg-surface); border-color: var(--border-color) !important;">
+                                            <h5 class="font-heading fw-bold m-0" style="color: var(--text-main);">Visão Geral do Efetivo</h5>
+                                        </div>
+                                        <div class="p-3 overflow-auto flex-grow-1">
+                                            <div v-if="activeGuards.length === 0" class="text-center py-5" style="color: var(--text-muted);">Nenhum agente ativo.</div>
+                                            <transition-group name="list">
+                                                <div v-for="guard in activeGuards" :key="guard.ID" class="d-flex justify-content-between align-items-center p-3 mb-2 rounded card-custom">
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <div class="avatar-initials" style="width: 35px; height: 35px; font-size: 0.8rem;">{{ getInitials(guard.Nome) }}</div>
+                                                        <span class="fw-bold" style="color: var(--text-main);">{{ guard.Nome }}</span>
+                                                    </div>
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <span class="small font-monospace text-muted">{{ guard.Telefone }}</span>
+                                                        <span class="status-dot text-success"></span>
+                                                    </div>
+                                                </div>
+                                            </transition-group>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ================== VIEW: LOCAIS / EVENTOS ================== -->
+                        <div v-else-if="currentView === 'events'" key="events">
+                            <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
+                                <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Locais & Eventos</h2></div>
+                                <div class="d-flex align-items-center gap-3 mt-3 mt-md-0">
+                                    <div class="sub-nav-tabs">
+                                        <button @click="eventSubView = 'active'" :class="['sub-nav-btn', { active: eventSubView === 'active' }]">Ativos</button>
+                                        <button @click="eventSubView = 'history'" :class="['sub-nav-btn', { active: eventSubView === 'history' }]">Histórico</button>
+                                    </div>
+                                    <button v-if="eventSubView === 'active'" @click="openModal('location')" class="btn btn-gold fw-bold d-flex align-items-center gap-2" type="button"><i data-lucide="plus" style="width: 16px;"></i> NOVO</button>
+                                </div>
+                            </div>
+
+                            <div class="row g-4">
+                                <transition-group name="list">
+                                    <div v-for="loc in filteredLocations" :key="loc.ID" class="col-12 col-md-6 col-xl-4">
+                                        <div class="glass-panel p-4 rounded-3 h-100 card-custom position-relative">
+                                            <div v-if="eventSubView === 'active'" class="dropdown position-absolute top-0 end-0 m-3">
+                                                <button class="btn btn-sm btn-link text-muted p-0 border-0 dropdown-toggle" data-bs-toggle="dropdown" type="button"><i data-lucide="more-vertical" style="width: 18px; pointer-events: none;"></i></button>
+                                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="background-color: var(--bg-surface); border-color: var(--border-color);">
+                                                    <li><a class="dropdown-item" href="#" @click.prevent="editLocation(loc)"><i data-lucide="pencil" style="width: 14px; margin-right:8px;"></i> Editar</a></li>
+                                                    <li><hr class="dropdown-divider" style="border-color: var(--border-color);"></li>
+                                                    <li><a class="dropdown-item text-danger" href="#" @click.prevent="changeLocationStatus(loc.ID, 'Cancelado')"><i data-lucide="ban" style="width: 14px; margin-right:8px;"></i> Cancelar / Arquivar</a></li>
+                                                </ul>
+                                            </div>
+
+                                            <div class="d-flex align-items-center gap-3 mb-3">
+                                                <div class="rounded-circle bg-body d-flex align-items-center justify-content-center text-gold border" style="width: 45px; height: 45px; border-color: var(--border-color) !important;">
+                                                    <span :key="'icon-' + loc.Tipo"><i :data-lucide="loc.Tipo === 'Evento' ? 'tent' : 'building'" style="width: 20px;"></i></span>
+                                                </div>
+                                                <div>
+                                                    <h5 class="fw-bold m-0" style="color: var(--text-main);">{{ loc.Nome }}</h5>
+                                                    <span :class="['badge bg-body border mt-1', loc.Tipo === 'Evento' ? 'text-info border-info border-opacity-50' : 'text-warning border-warning border-opacity-50']">{{ loc.Tipo }}</span>
+                                                </div>
+                                            </div>
+                                            <div class="small fw-semibold mt-3" style="color: var(--text-muted);">
+                                                <div v-if="loc.Tipo === 'Evento'" class="d-flex align-items-center gap-2 mb-2"><i data-lucide="calendar" style="width: 14px;"></i> {{ loc.Data_Inicio }} às {{ loc.Hora_Inicio }}</div>
+                                                <div v-if="loc.Tipo === 'Evento'" class="d-flex align-items-center gap-2"><i data-lucide="calendar-off" style="width: 14px;"></i> {{ loc.Data_Fim }} às {{ loc.Hora_Fim }}</div>
+                                                <div v-else class="d-flex align-items-center gap-2"><i data-lucide="infinity" style="width: 14px;"></i> Operação Contínua</div>
+                                            </div>
+                                            <div class="mt-4 border-top pt-3" style="border-color: var(--border-color) !important;">
+                                                <span v-if="loc.Status === 'Expirado'" class="badge bg-danger bg-opacity-25 text-danger border border-danger px-3 py-2">EXPIRADO</span>
+                                                <span v-else-if="loc.Status === 'Cancelado'" class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary px-3 py-2">CANCELADO</span>
+                                                <span v-else class="badge bg-success bg-opacity-25 text-success border border-success px-3 py-2">ATIVO</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </transition-group>
+                                <div v-if="filteredLocations.length === 0" class="col-12 text-center py-5 text-muted">Nenhum registo encontrado nesta visão.</div>
+                            </div>
+                        </div>
+
+                        <!-- ================== VIEW: EFETIVO ================== -->
+                        <div v-else-if="currentView === 'guards'" key="guards">
+                            <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
+                                <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Efetivo</h2></div>
+                                <div class="d-flex align-items-center gap-3 mt-3 mt-md-0">
+                                    <div class="sub-nav-tabs">
+                                        <button @click="guardSubView = 'active'" :class="['sub-nav-btn', { active: guardSubView === 'active' }]">Atual</button>
+                                        <button @click="guardSubView = 'history'" :class="['sub-nav-btn', { active: guardSubView === 'history' }]">Inativos</button>
+                                    </div>
+                                    <button v-if="guardSubView === 'active'" @click="openModal('guard')" class="btn btn-gold fw-bold d-flex align-items-center gap-2" type="button"><i data-lucide="plus" style="width: 16px;"></i> NOVO</button>
+                                </div>
+                            </div>
+
+                            <div class="row g-4">
+                                <transition-group name="list">
+                                    <div v-for="g in filteredGuards" :key="g.ID" class="col-12 col-md-4 col-xl-3">
+                                        <div class="glass-panel p-4 rounded-3 h-100 text-center position-relative card-custom d-flex flex-column align-items-center">
+                                            <div class="dropdown position-absolute top-0 end-0 m-2">
+                                                <button class="btn btn-sm btn-link text-muted p-0 border-0 dropdown-toggle" data-bs-toggle="dropdown" type="button"><i data-lucide="more-vertical" style="width: 16px; pointer-events: none;"></i></button>
+                                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="background-color: var(--bg-surface); border-color: var(--border-color);">
+                                                    <li><a class="dropdown-item" href="#" @click.prevent="editGuard(g)"><i data-lucide="pencil" style="width: 14px; margin-right:8px;"></i> Editar</a></li>
+                                                    <li v-if="g.Status === 'Ativo'"><a class="dropdown-item text-warning" href="#" @click.prevent="changeGuardStatus(g.ID, 'Inativo')"><i data-lucide="user-minus" style="width: 14px; margin-right:8px;"></i> Desativar</a></li>
+                                                    <li v-if="g.Status === 'Inativo'"><a class="dropdown-item text-success" href="#" @click.prevent="changeGuardStatus(g.ID, 'Ativo')"><i data-lucide="user-check" style="width: 14px; margin-right:8px;"></i> Reativar</a></li>
+                                                    <li><hr class="dropdown-divider" style="border-color: var(--border-color);"></li>
+                                                    <li><a class="dropdown-item text-danger" href="#" @click.prevent="deleteRecord('FUNCIONARIOS', g.ID)"><i data-lucide="trash-2" style="width: 14px; margin-right:8px;"></i> Eliminar</a></li>
+                                                </ul>
+                                            </div>
+                                            <div class="avatar-initials mb-3 shadow-sm" style="width: 70px; height: 70px; font-size: 1.6rem;">{{ getInitials(g.Nome) }}</div>
+                                            <h5 class="fw-bold mb-1" style="color: var(--text-main);">{{ g.Nome }}</h5>
+                                            <div class="small fw-semibold mb-4 d-flex align-items-center justify-content-center gap-2 bg-body px-3 py-1 rounded-pill mt-2" style="color: var(--text-muted); border: 1px solid var(--border-color);"><i data-lucide="phone" style="width: 12px;"></i> {{ g.Telefone }}</div>
+                                            <div class="mt-auto">
+                                                <span :class="['badge rounded-pill px-3 py-2', g.Status === 'Ativo' ? 'bg-success bg-opacity-25 text-success border border-success' : 'bg-danger bg-opacity-25 text-danger border border-danger']">{{ g.Status }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </transition-group>
+                                <div v-if="filteredGuards.length === 0" class="col-12 text-center py-5 text-muted">Nenhum agente encontrado.</div>
+                            </div>
+                        </div>
+
+                        <!-- ================== VIEW: ESCALAS TÁTICAS ================== -->
+                        <div v-else-if="currentView === 'schedule'" key="schedule">
+                             <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
+                                <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Escalas Táticas</h2></div>
+                                <div class="d-flex gap-3 align-items-center mt-3 mt-md-0">
+                                    <button @click="generatePDFAll" class="btn btn-outline-secondary btn-sm d-none d-md-flex align-items-center gap-2" style="color: var(--text-main); border-color: var(--border-color);" type="button"><i data-lucide="file-down" style="width: 14px;"></i> Exportar Todas</button>
+                                    <div class="sub-nav-tabs">
+                                        <button @click="scheduleViewMode = 'grid'" :class="['sub-nav-btn', { active: scheduleViewMode === 'grid' }]">Próximos</button>
+                                        <button @click="scheduleViewMode = 'history'" :class="['sub-nav-btn', { active: scheduleViewMode === 'history' }]">Histórico</button>
+                                        <button @click="scheduleViewMode = 'calendar'" :class="['sub-nav-btn', { active: scheduleViewMode === 'calendar' }]">Calendário</button>
+                                    </div>
+                                    <button @click="openModal('shift')" class="btn btn-gold fw-bold d-flex align-items-center gap-2" type="button"><i data-lucide="plus" style="width: 16px;"></i> ALOCAR</button>
+                                </div>
+                            </div>
+
+                            <!-- Modo Lista Visual (Grid) & Histórico -->
+                            <div v-show="scheduleViewMode === 'grid' || scheduleViewMode === 'history'" class="glass-panel p-4 rounded-3 overflow-auto" style="max-height: 75vh;">
+                                <div v-if="Object.keys(groupedShifts).length === 0" class="text-center py-5 text-muted">
+                                    <i data-lucide="calendar-x" style="width: 48px; height: 48px; opacity: 0.5;" class="mb-3"></i>
+                                    <h5>Nenhuma escala encontrada.</h5>
+                                </div>
+                                
+                                <div v-for="(shiftsGroup, date) in groupedShifts" :key="date" class="mb-5">
+                                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-4 sticky-top bg-body z-1" style="border-color: var(--border-color) !important;">
+                                        <h5 class="fw-bold text-gold text-capitalize m-0"><i data-lucide="calendar-days" style="width: 18px; margin-right: 8px;"></i> {{ formatDateFull(date) }}</h5>
+                                        <button @click="generatePDFDay(date, shiftsGroup)" class="btn btn-sm btn-link text-muted p-0 text-decoration-none hover-text-gold d-flex align-items-center gap-1" type="button"><i data-lucide="download" style="width: 14px;"></i> PDF Dia</button>
+                                    </div>
+
+                                    <div class="row g-4">
+                                        <transition-group name="list">
+                                            <div v-for="shift in shiftsGroup" :key="shift.ID_Escala" class="col-12 col-md-6 col-xl-4">
+                                                <div class="card-custom p-4 rounded-3 position-relative h-100 d-flex flex-column">
+                                                    <div class="dropdown position-absolute top-0 end-0 m-2">
+                                                        <button class="btn btn-sm btn-link text-muted p-0 border-0 dropdown-toggle" data-bs-toggle="dropdown" type="button"><i data-lucide="more-vertical" style="width: 16px; pointer-events: none;"></i></button>
+                                                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="background-color: var(--bg-surface); border-color: var(--border-color);">
+                                                            <li><a class="dropdown-item" href="#" @click.prevent="editShift(shift)"><i data-lucide="pencil" style="width: 14px; margin-right:8px;"></i> Editar</a></li>
+                                                            <li v-if="shift.Status !== 'Cancelado'"><a class="dropdown-item text-danger" href="#" @click.prevent="changeShiftStatus(shift.ID_Escala, 'Cancelado')"><i data-lucide="ban" style="width: 14px; margin-right:8px;"></i> Cancelar Turno</a></li>
+                                                        </ul>
+                                                    </div>
+
+                                                    <div class="d-flex align-items-center gap-3 mb-4">
+                                                        <div class="avatar-initials shadow-sm" style="width: 50px; height: 50px; font-size: 1.2rem;">{{ getInitials(getGuardName(shift.ID_Funcionario)) }}</div>
+                                                        <div>
+                                                            <div class="fw-bold fs-5" style="color: var(--text-main); padding-right: 20px; line-height: 1.2;">{{ getGuardName(shift.ID_Funcionario) }}</div>
+                                                            <div class="small mt-1 text-gold fw-bold"><i data-lucide="map-pin" style="width: 12px;"></i> {{ getLocationName(shift.ID_LocalEvento) }}</div>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <div class="bg-body p-2 rounded mb-3 text-center border" style="border-color: var(--border-color) !important;">
+                                                        <span class="small fw-bold text-muted text-uppercase">Função:</span> <span class="fw-bold" style="color: var(--text-main);">{{ shift.Funcao || 'Vigilante' }}</span>
+                                                    </div>
+
+                                                    <div class="mt-auto d-flex justify-content-between align-items-end pt-3 border-top" style="border-color: var(--border-color) !important;">
+                                                        <span v-if="shift.Status === 'Cancelado'" class="badge bg-danger bg-opacity-25 text-danger border border-danger px-2 py-1">CANCELADO</span>
+                                                        <span v-else class="badge bg-body text-muted border border-secondary border-opacity-25 px-2 py-1 text-uppercase">{{ shift.Status }}</span>
+                                                        <div class="font-monospace fw-bold px-3 py-1 rounded-pill" style="background-color: var(--bg-body); color: var(--rincon-gold); border: 1px solid var(--border-color);">
+                                                            <i data-lucide="clock" style="width: 12px; margin-right: 4px;"></i> {{ shift.Horario_Entrada }} - {{ shift.Horario_Saida }}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </transition-group>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Modo Calendário Otimizado (FullCalendar PT-BR) -->
+                            <div v-show="scheduleViewMode === 'calendar'" class="glass-panel p-4 rounded-3">
+                                <div id="calendar" style="min-height: 650px;"></div>
+                            </div>
+                        </div>
+
+                    </transition>
+                </div>
+            </main>
+
+            <!-- ================== MODAIS DE CRUD ================== -->
+
+            <div v-if="activeModal === 'guard'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content shadow-lg">
+                        <div class="modal-header">
+                            <h5 class="modal-title fw-bold font-heading">{{ formGuard.ID ? 'Editar Agente' : 'Novo Agente' }}</h5>
+                            <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form @submit.prevent="saveGuard">
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Nome</label>
+                                    <input v-model="formGuard.Nome" type="text" class="form-control" required placeholder="Ex: João Alves">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Nº de Telefone</label>
+                                    <input v-model="formGuard.Telefone" type="tel" class="form-control" required placeholder="(00) 00000-0000">
+                                </div>
+                                <button type="submit" class="btn btn-gold fw-bold w-100 mt-4 py-2">SALVAR</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="activeModal === 'location'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content shadow-lg">
+                        <div class="modal-header">
+                            <h5 class="modal-title fw-bold font-heading">{{ formLocation.ID ? 'Editar Local' : 'Novo Local / Evento' }}</h5>
+                            <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <form @submit.prevent="saveLocation">
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Nome do Posto / Evento</label>
+                                    <input v-model="formLocation.Nome" type="text" class="form-control" required>
+                                </div>
+                                <div class="mb-4 form-check form-switch bg-body p-3 rounded border" style="border-color: var(--border-color) !important;">
+                                    <input class="form-check-input ms-0 me-3" type="checkbox" role="switch" id="isEventCheck" v-model="formLocation.isEvent">
+                                    <label class="form-check-label text-gold fw-bold" for="isEventCheck">Este local é um Evento Temporário?</label>
+                                </div>
+                                <div v-if="formLocation.isEvent" class="row g-3">
+                                    <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase">Data Início</label><input v-model="formLocation.Data_Inicio" type="date" class="form-control" required></div>
+                                    <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase">Hora Início</label><input v-model="formLocation.Hora_Inicio" type="time" class="form-control" required></div>
+                                    <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase">Data Fim</label><input v-model="formLocation.Data_Fim" type="date" class="form-control" required></div>
+                                    <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase">Hora Fim</label><input v-model="formLocation.Hora_Fim" type="time" class="form-control" required></div>
+                                </div>
+                                <button type="submit" class="btn btn-gold fw-bold w-100 mt-4 py-2">SALVAR LOCAL</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Múltiplos Agentes & Sync Horário -->
+            <div v-if="activeModal === 'shift'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                    <div class="modal-content shadow-lg">
+                        <div class="modal-header">
+                            <h5 class="modal-title fw-bold font-heading">{{ isEditingShift ? 'Editar Escala' : 'Alocar Múltiplos Efetivos' }}</h5>
+                            <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+                        </div>
+                        <div class="modal-body p-4">
+                            <div v-if="errorMsg" class="alert alert-danger fw-bold small"><i data-lucide="alert-triangle" style="width: 16px;"></i> {{ errorMsg }}</div>
+                            <form @submit.prevent="saveShift">
+                                
+                                <div class="row g-3 mb-4">
+                                    <div class="col-12">
+                                        <label class="form-label text-muted small fw-bold text-uppercase">Local / Evento</label>
+                                        <select v-model="formShift.ID_LocalEvento" class="form-select" required>
+                                            <option v-for="l in activeLocations" :key="l.ID" :value="l.ID">{{ l.Nome }} {{l.Tipo === 'Evento' ? '(Evento)' : '(Fixo)'}}</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Painel Sincronização Inteligente -->
+                                <div class="bg-body p-3 rounded border mb-4" style="border-color: var(--border-color) !important;">
+                                    <div class="form-check form-switch mb-3">
+                                        <input class="form-check-input" type="checkbox" id="syncTimeCheck" v-model="formShift.syncTime">
+                                        <label class="form-check-label fw-bold" :class="formShift.syncTime ? 'text-gold' : 'text-muted'" for="syncTimeCheck">
+                                            Sincronizar com os horários do Evento/Local
+                                        </label>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-12 col-md-4"><label class="form-label text-muted small fw-bold text-uppercase">Data do Turno</label><input v-model="formShift.Data" type="date" class="form-control" required :disabled="formShift.syncTime"></div>
+                                        <div class="col-6 col-md-4"><label class="form-label text-muted small fw-bold text-uppercase">Entrada</label><input v-model="formShift.Horario_Entrada" type="time" class="form-control" required :disabled="formShift.syncTime"></div>
+                                        <div class="col-6 col-md-4"><label class="form-label text-muted small fw-bold text-uppercase">Saída</label><input v-model="formShift.Horario_Saida" type="time" class="form-control" required :disabled="formShift.syncTime"></div>
+                                    </div>
+                                </div>
+
+                                <hr style="border-color: var(--border-color);">
+                                <h6 class="fw-bold mb-3 text-gold">Agentes & Funções</h6>
+
+                                <!-- Lista Dinâmica de Agentes -->
+                                <div v-for="(agente, index) in formShift.agentes" :key="index" class="d-flex flex-column flex-md-row gap-2 mb-3 bg-body p-2 rounded border position-relative" style="border-color: var(--border-color) !important;">
+                                    <div class="flex-grow-1">
+                                        <select v-model="agente.ID_Funcionario" class="form-select border-0 bg-transparent" required>
+                                            <option value="" disabled>Selecione um agente...</option>
+                                            <option v-for="g in activeGuards" :key="g.ID" :value="g.ID">{{ g.Nome }} ({{g.Telefone}})</option>
+                                        </select>
+                                    </div>
+                                    <div style="width: 2px; background: var(--border-color); margin: 5px 0;" class="d-none d-md-block"></div>
+                                    <div class="flex-grow-1">
+                                        <select v-model="agente.Funcao" @change="handleRoleChange($event, index)" class="form-select border-0 bg-transparent" required>
+                                            <option value="" disabled>Atribuir Função...</option>
+                                            <option v-for="f in funcoes" :key="f.ID" :value="f.Nome">{{ f.Nome }}</option>
+                                            <option value="NEW_ROLE" class="text-gold fw-bold">+ Criar Nova Função</option>
+                                        </select>
+                                    </div>
+                                    <button v-if="formShift.agentes.length > 1 && !isEditingShift" type="button" @click="removeAgentRow(index)" class="btn btn-link text-danger p-2"><i data-lucide="trash-2" style="width: 18px;"></i></button>
+                                </div>
+
+                                <button v-if="!isEditingShift" type="button" @click="addAgentRow" class="btn btn-sm btn-outline-secondary w-100 mb-4 fw-bold" style="border-style: dashed;"><i data-lucide="plus" style="width: 14px;"></i> ADICIONAR MAIS UM AGENTE</button>
+
+                                <button type="submit" class="btn btn-gold fw-bold w-100 py-3 mt-2">CONFIRMAR ALOCAÇÃO</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </transition>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+    const { jsPDF } = window.jspdf;
+
+    const runServer = (method, ...args) => {
+        return new Promise((resolve, reject) => {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(r => r.success ? resolve(r.data) : reject(new Error(r.error)))
+                    .withFailureHandler(err => reject(new Error(err.message)))
+                    [method](...args);
+            } else {
+                // Mock instantâneo para UI local 
+                setTimeout(() => {
+                    if (method === 'getDashboardData') {
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        resolve({
+                            funcionarios: [{ ID: 'F1', Nome: 'Marcos Silva', Telefone: '(11) 98888-1111', Status: 'Ativo' }, { ID: 'F2', Nome: 'Ana Beatriz', Telefone: '(11) 97777-2222', Status: 'Ativo' }],
+                            locais: [{ ID: 'L1', Nome: 'Condomínio', Tipo: 'Fixo', Data_Inicio: '', Hora_Inicio: '', Data_Fim: '', Hora_Fim: '', Status: 'Ativo', expired: false }],
+                            escalas: [{ ID_Escala: 'E1', ID_Funcionario: 'F1', ID_LocalEvento: 'L1', Data: todayStr, Horario_Entrada: '08:00', Horario_Saida: '20:00', Status: 'Confirmado', Funcao: 'Vigilante' }],
+                            funcoes: [{ ID: '1', Nome: 'Vigilante' }, { ID: '2', Nome: 'Supervisor' }]
+                        });
+                    } else if (method === 'saveFuncao') { resolve({ ID: Date.now(), Nome: args[0] }); }
+                    else resolve(true);
+                }, 200); 
+            }
+        });
+    };
+
+    createApp({
+        setup() {
+            const isInitialLoading = ref(true);
+            const loadingProgress = ref(0);
+            const loadingMessage = ref('A Sincronizar Banco de Dados...');
+            
+            const isLoading = ref(false);
+            const isDarkMode = ref(true);
+            const currentView = ref('dashboard');
+            
+            const eventSubView = ref('active'); 
+            const guardSubView = ref('active'); 
+            const scheduleViewMode = ref('grid'); 
+            
+            const activeModal = ref(null);
+            const mobileMenuOpen = ref(false);
+            const todayDate = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+            const errorMsg = ref('');
+
+            const guards = ref([]);
+            const locations = ref([]);
+            const shifts = ref([]);
+            const funcoes = ref([]);
+
+            // ==========================================
+            // OTIMIZAÇÃO: MAPAS O(1) PARA BUSCA
+            // ==========================================
+            const guardsMap = computed(() => {
+                return guards.value.reduce((map, g) => { map[g.ID] = g.Nome; return map; }, {});
+            });
+            const locationsMap = computed(() => {
+                return locations.value.reduce((map, l) => { map[l.ID] = l.Nome; return map; }, {});
+            });
+
+            const getGuardName = (id) => guardsMap.value[id] || 'Desconhecido';
+            const getLocationName = (id) => locationsMap.value[id] || 'Local Removido';
+
+            const getInitials = (name) => {
+                if (!name || name.trim() === '') return 'U';
+                const parts = name.trim().split(' ');
+                if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+                return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            };
+
+            const filteredLocations = computed(() => eventSubView.value === 'active' ? locations.value.filter(l => l.Status === 'Ativo' && !l.expired) : locations.value.filter(l => l.Status === 'Cancelado' || l.Status === 'Expirado' || l.expired));
+            const activeLocations = computed(() => locations.value.filter(l => l.Status === 'Ativo' && !l.expired));
+            const filteredGuards = computed(() => guardSubView.value === 'active' ? guards.value.filter(g => g.Status === 'Ativo') : guards.value.filter(g => g.Status === 'Inativo'));
+            const activeGuards = computed(() => guards.value.filter(g => g.Status === 'Ativo'));
+
+            const groupedShifts = computed(() => {
+                const todayIso = new Date().toISOString().split('T')[0];
+                let targetShifts = scheduleViewMode.value === 'grid' ? shifts.value.filter(s => s.Data >= todayIso && s.Status !== 'Cancelado') : shifts.value.filter(s => s.Data < todayIso || s.Status === 'Cancelado');
+                const groups = {};
+                const sorted = [...targetShifts].sort((a,b) => new Date(a.Data) - new Date(b.Data));
+                sorted.forEach(s => { if(!groups[s.Data]) groups[s.Data] = []; groups[s.Data].push(s); });
+                return groups;
+            });
+
+            const shiftsToday = computed(() => {
+                const today = new Date().toISOString().split('T')[0];
+                return shifts.value.filter(s => s.Data === today && s.Status !== 'Cancelado');
+            });
+
+            const formGuard = ref({ ID: null, Nome: '', Telefone: '', Status: 'Ativo' });
+            const formLocation = ref({ ID: null, Nome: '', isEvent: false, Data_Inicio: '', Hora_Inicio: '', Data_Fim: '', Hora_Fim: '', Status: 'Ativo' });
+            
+            const formShift = ref({ 
+                ID_Escala: null, ID_LocalEvento: '', Data: '', Horario_Entrada: '', Horario_Saida: '', 
+                Status: 'Confirmado', syncTime: true,
+                agentes: [{ ID_Funcionario: '', Funcao: '' }] 
+            });
+            const isEditingShift = computed(() => !!formShift.value.ID_Escala);
+
+            const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; document.documentElement.setAttribute('data-bs-theme', isDarkMode.value ? 'dark' : 'light'); };
+            const toggleSidebar = () => mobileMenuOpen.value = !mobileMenuOpen.value;
+            const switchView = (view) => { currentView.value = view; mobileMenuOpen.value = false; };
+            
+            const closeModal = () => { activeModal.value = null; };
+            const openModal = (modalName) => { 
+                errorMsg.value = ''; 
+                if(modalName === 'guard') formGuard.value = { ID: null, Nome: '', Telefone: '', Status: 'Ativo' };
+                if(modalName === 'location') formLocation.value = { ID: null, Nome: '', isEvent: false, Data_Inicio: '', Hora_Inicio: '', Data_Fim: '', Hora_Fim: '', Status: 'Ativo' };
+                if(modalName === 'shift') formShift.value = { ID_Escala: null, ID_LocalEvento: '', Data: '', Horario_Entrada: '', Horario_Saida: '', Status: 'Confirmado', syncTime: true, agentes: [{ ID_Funcionario: '', Funcao: '' }] };
+                activeModal.value = modalName; 
+            };
+            
+            const formatDateFull = (d) => new Date(d).toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+
+            const loadData = async () => {
+                try {
+                    const data = await runServer('getDashboardData');
+                    if(data) { guards.value = data.funcionarios || []; locations.value = data.locais || []; shifts.value = data.escalas || []; funcoes.value = data.funcoes || []; }
+                } catch(e) { alert("Erro de Conexão: " + e.message); }
+            };
+
+            const addAgentRow = () => { formShift.value.agentes.push({ ID_Funcionario: '', Funcao: '' }); };
+            const removeAgentRow = (idx) => { formShift.value.agentes.splice(idx, 1); };
+
+            const handleRoleChange = async (event, index) => {
+                if (event.target.value === 'NEW_ROLE') {
+                    const newRole = prompt("Digite o nome da nova função (Ex: Fiscal, Controlador de Acesso):");
+                    if (newRole && newRole.trim() !== '') {
+                        isLoading.value = true;
+                        try {
+                            const res = await runServer('saveFuncao', newRole.trim());
+                            funcoes.value.push(res.data);
+                            formShift.value.agentes[index].Funcao = res.data.Nome;
+                        } catch(e) { alert("Erro ao salvar função."); formShift.value.agentes[index].Funcao = ''; }
+                        finally { isLoading.value = false; }
+                    } else {
+                        formShift.value.agentes[index].Funcao = '';
+                    }
+                }
+            };
+
+            watch([() => formShift.value.ID_LocalEvento, () => formShift.value.syncTime], ([newLocId, sync]) => {
+                if(sync && newLocId) {
+                    const loc = locations.value.find(l => l.ID === newLocId);
+                    if(loc && loc.Tipo === 'Evento') {
+                        formShift.value.Data = loc.Data_Inicio;
+                        formShift.value.Horario_Entrada = loc.Hora_Inicio;
+                        formShift.value.Horario_Saida = loc.Hora_Fim;
+                    }
+                }
+            });
+
+            const saveShift = async () => {
+                isLoading.value = true; errorMsg.value = '';
+                try {
+                    const payloads = formShift.value.agentes.map(ag => ({
+                        ID_Escala: formShift.value.ID_Escala,
+                        ID_LocalEvento: formShift.value.ID_LocalEvento,
+                        Data: formShift.value.Data,
+                        Horario_Entrada: formShift.value.Horario_Entrada,
+                        Horario_Saida: formShift.value.Horario_Saida,
+                        ID_Funcionario: ag.ID_Funcionario,
+                        Funcao: ag.Funcao,
+                        Status: formShift.value.Status
+                    }));
+
+                    await runServer('saveEscalaBatch', payloads);
+                    closeModal(); await loadData();
+                    if(scheduleViewMode.value === 'calendar') initCalendar();
+                } catch(e) { errorMsg.value = e.message; } finally { isLoading.value = false; }
+            };
+
+            const saveGuard = async () => { isLoading.value = true; try { await runServer('saveFuncionario', formGuard.value); closeModal(); await loadData(); } catch(e) { alert(e.message); } finally { isLoading.value = false; } };
+            const saveLocation = async () => { isLoading.value = true; try { await runServer('saveLocal', { ...formLocation.value, Tipo: formLocation.value.isEvent ? 'Evento' : 'Fixo' }); closeModal(); await loadData(); } catch(e) { alert(e.message); } finally { isLoading.value = false; } };
+            const editLocation = (loc) => { formLocation.value = { ...loc, isEvent: loc.Tipo === 'Evento' }; activeModal.value = 'location'; };
+            const editGuard = (g) => { formGuard.value = { ...g }; activeModal.value = 'guard'; };
+            const editShift = (shift) => { formShift.value = { ID_Escala: shift.ID_Escala, ID_LocalEvento: shift.ID_LocalEvento, Data: shift.Data, Horario_Entrada: shift.Horario_Entrada, Horario_Saida: shift.Horario_Saida, Status: shift.Status, syncTime: false, agentes: [{ ID_Funcionario: shift.ID_Funcionario, Funcao: shift.Funcao }] }; activeModal.value = 'shift'; };
+            
+            const changeLocationStatus = async (id, s) => { if(confirm("Deseja cancelar?")){ isLoading.value = true; try{ await runServer('saveLocal', {...locations.value.find(l => l.ID === id), Status: s}); await loadData(); } catch(e){} finally{isLoading.value=false;} }};
+            const changeGuardStatus = async (id, s) => { isLoading.value = true; try{ await runServer('saveFuncionario', {...guards.value.find(g => g.ID === id), Status: s}); await loadData(); } catch(e){} finally{isLoading.value=false;} };
+            const changeShiftStatus = async (id, s) => { if(confirm("Deseja cancelar este turno?")){ isLoading.value = true; try{ await runServer('saveEscalaBatch', [{...shifts.value.find(x => x.ID_Escala === id), Status: s}]); await loadData(); if(scheduleViewMode.value === 'calendar') initCalendar(); } catch(e){} finally{isLoading.value=false;} }};
+            const deleteRecord = async (sheet, id) => { if(confirm("Atenção: A exclusão permanente não pode ser desfeita. Continuar?")){ isLoading.value = true; try{ await runServer('deleteRow', sheet, id); await loadData(); } catch(e){} finally{isLoading.value=false;} }};
+
+            const generatePDFDay = (dateStr, shiftsArray) => {
+                const doc = new jsPDF();
+                doc.setFillColor(40, 40, 43); doc.rect(0, 0, 210, 25, 'F');
+                doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("SAFEGUARD ELITE", 14, 16);
+                doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("ESCALA OPERACIONAL", 145, 16);
+                
+                doc.setTextColor(40, 40, 43); doc.setFontSize(14); doc.text(`Data Base: ${formatDateFull(dateStr)}`, 14, 40);
+                
+                const tableData = shiftsArray.map(s => [ getLocationName(s.ID_LocalEvento), getGuardName(s.ID_Funcionario), s.Funcao || 'Vigilante', `${s.Horario_Entrada} as ${s.Horario_Saida}` ]);
+                doc.autoTable({ startY: 48, head: [['Local / Evento', 'Agente Responsável', 'Função / Papel', 'Turno']], body: tableData, theme: 'grid', headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0] }, styles: { fontSize: 9 } });
+                doc.save(`escala_${dateStr}.pdf`);
+            };
+
+            const generatePDFAll = () => {
+                const doc = new jsPDF();
+                doc.setFillColor(40, 40, 43); doc.rect(0, 0, 210, 25, 'F');
+                doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("SAFEGUARD ELITE", 14, 16);
+                doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("RELATÓRIO GERAL", 155, 16);
+
+                let y = 35;
+                for (let date in groupedShifts.value) {
+                    if(y > 250) { doc.addPage(); y = 20; }
+                    doc.setTextColor(40, 40, 43); doc.setFontSize(12); doc.text(`Dia: ${formatDateFull(date)}`, 14, y);
+                    const tableData = groupedShifts.value[date].map(s => [ getLocationName(s.ID_LocalEvento), getGuardName(s.ID_Funcionario), s.Funcao || '-', `${s.Horario_Entrada}-${s.Horario_Saida}` ]);
+                    doc.autoTable({ startY: y + 5, head: [['Local', 'Agente', 'Função', 'Horário']], body: tableData, theme: 'grid', headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0] }, styles: { fontSize: 8 }, margin:{bottom: 15} });
+                    y = doc.lastAutoTable.finalY + 15;
+                }
+                doc.save(`todas_escalas.pdf`);
+            };
+
+            // ==========================================
+            // OTIMIZAÇÃO: FULLCALENDAR SEM DESTRUIÇÃO
+            // ==========================================
+            let calendarInstance = null;
+            const initCalendar = () => {
+                const el = document.getElementById('calendar'); 
+                if(!el) return; 
+                
+                const events = shifts.value.filter(s => s.Status !== 'Cancelado').map(s => {
+                    const dtStart = new Date(`${s.Data}T${s.Horario_Entrada}:00`); let dtEnd = new Date(`${s.Data}T${s.Horario_Saida}:00`);
+                    if(dtEnd <= dtStart) dtEnd.setDate(dtEnd.getDate() + 1);
+                    return { id: s.ID_Escala, title: `${getGuardName(s.ID_Funcionario)} @ ${getLocationName(s.ID_LocalEvento)}`, start: dtStart.toISOString(), end: dtEnd.toISOString(), backgroundColor: 'var(--rincon-gold)', borderColor: 'transparent', textColor: 'black' };
+                });
+                
+                if (calendarInstance) {
+                    calendarInstance.removeAllEvents();
+                    calendarInstance.addEventSource(events);
+                } else {
+                    calendarInstance = new FullCalendar.Calendar(el, { initialView: 'dayGridMonth', locale: 'pt-br', headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }, events: events });
+                    calendarInstance.render();
+                }
+            };
+
+            watch([currentView, scheduleViewMode], async () => { 
+                if(currentView.value === 'schedule' && scheduleViewMode.value === 'calendar') { 
+                    await nextTick(); 
+                    initCalendar(); 
+                    // Correção: Atualiza as dimensões do calendário caso a aba estivesse escondida
+                    setTimeout(() => { if (calendarInstance) calendarInstance.updateSize(); }, 150);
+                } 
+            });
+            
+            onMounted(() => { 
+                // ==========================================
+                // OTIMIZAÇÃO MAXIMA: OBSERVER PAUSE/RESUME
+                // ==========================================
+                let lucideTimeout = null;
+                const observer = new MutationObserver(() => {
+                    clearTimeout(lucideTimeout);
+                    lucideTimeout = setTimeout(() => {
+                        if (window.lucide) {
+                            observer.disconnect(); // Desliga o observer brevemente para evitar loop infinito
+                            window.lucide.createIcons();
+                            const appEl = document.getElementById('app');
+                            if(appEl) observer.observe(appEl, { childList: true, subtree: true }); // Liga de volta
+                        }
+                    }, 50); 
+                });
+
+                const appEl = document.getElementById('app');
+                if(appEl) observer.observe(appEl, { childList: true, subtree: true });
+
+                // Efeito do Loader Progressivo Inicial
+                let simProgress = setInterval(() => {
+                    if(loadingProgress.value < 85) loadingProgress.value += Math.random() * 20;
+                    if(loadingProgress.value > 50) loadingMessage.value = 'A Carregar Módulos de Operação...';
+                }, 150);
+
+                loadData().then(() => {
+                    clearInterval(simProgress);
+                    loadingProgress.value = 100;
+                    loadingMessage.value = 'Sistema Pronto';
+                    setTimeout(() => {
+                        isInitialLoading.value = false;
+                        nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    }, 500); 
+                }); 
+            });
+
+            return {
+                isInitialLoading, loadingProgress, loadingMessage, isLoading, isDarkMode, currentView, scheduleViewMode, eventSubView, guardSubView, activeModal, mobileMenuOpen, todayDate, errorMsg, getInitials,
+                filteredLocations, activeLocations, filteredGuards, activeGuards, groupedShifts, shiftsToday, guards, locations, shifts, funcoes,
+                formGuard, formLocation, formShift, isEditingShift,
+                toggleTheme, toggleSidebar, switchView, openModal, closeModal, formatDateFull, addAgentRow, removeAgentRow, handleRoleChange,
+                getGuardName, getLocationName, saveGuard, saveLocation, saveShift, deleteRecord,
+                editLocation, changeLocationStatus, editGuard, changeGuardStatus, editShift, changeShiftStatus,
+                generatePDFDay, generatePDFAll
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
