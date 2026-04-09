@@ -704,7 +704,8 @@
                 const todayIso = new Date().toISOString().split('T')[0];
                 let targetShifts = scheduleViewMode.value === 'grid' ? shifts.value.filter(s => s.Data >= todayIso && s.Status !== 'Cancelado') : shifts.value.filter(s => s.Data < todayIso || s.Status === 'Cancelado');
                 const groups = {};
-                const sorted = [...targetShifts].sort((a,b) => new Date(a.Data) - new Date(b.Data));
+                // OTIMIZAÇÃO: comparação de strings ISO é lexicograficamente correta (evita new Date())
+                const sorted = [...targetShifts].sort((a, b) => a.Data < b.Data ? -1 : a.Data > b.Data ? 1 : 0);
                 sorted.forEach(s => { if(!groups[s.Data]) groups[s.Data] = []; groups[s.Data].push(s); });
                 return groups;
             });
@@ -737,7 +738,14 @@
                 activeModal.value = modalName; 
             };
             
-            const formatDateFull = (d) => new Date(d).toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+            // OTIMIZAÇÃO: Cache de datas formatadas para evitar múltiplos new Date() em loops
+            const _dateFormatCache = new Map();
+            const formatDateFull = (d) => {
+                if (_dateFormatCache.has(d)) return _dateFormatCache.get(d);
+                const formatted = new Date(d + 'T00:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+                _dateFormatCache.set(d, formatted);
+                return formatted;
+            };
 
             const loadData = async () => {
                 try {
@@ -853,8 +861,11 @@
                 });
                 
                 if (calendarInstance) {
-                    calendarInstance.removeAllEvents();
-                    calendarInstance.addEventSource(events);
+                    // OTIMIZAÇÃO: batchRendering agrupa DOM updates em uma única operação
+                    calendarInstance.batchRendering(() => {
+                        calendarInstance.removeAllEvents();
+                        calendarInstance.addEventSource(events);
+                    });
                 } else {
                     calendarInstance = new FullCalendar.Calendar(el, { initialView: 'dayGridMonth', locale: 'pt-br', headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }, events: events });
                     calendarInstance.render();
@@ -866,7 +877,7 @@
                     await nextTick(); 
                     initCalendar(); 
                     // Correção: Atualiza as dimensões do calendário caso a aba estivesse escondida
-                    setTimeout(() => { if (calendarInstance) calendarInstance.updateSize(); }, 150);
+                    requestAnimationFrame(() => { if (calendarInstance) calendarInstance.updateSize(); });
                 } 
             });
             
@@ -874,17 +885,17 @@
                 // ==========================================
                 // OTIMIZAÇÃO MAXIMA: OBSERVER PAUSE/RESUME
                 // ==========================================
-                let lucideTimeout = null;
+                let lucideRafId = null;
                 const observer = new MutationObserver(() => {
-                    clearTimeout(lucideTimeout);
-                    lucideTimeout = setTimeout(() => {
+                    if (lucideRafId) cancelAnimationFrame(lucideRafId);
+                    lucideRafId = requestAnimationFrame(() => {
                         if (window.lucide) {
                             observer.disconnect(); // Desliga o observer brevemente para evitar loop infinito
                             window.lucide.createIcons();
                             const appEl = document.getElementById('app');
                             if(appEl) observer.observe(appEl, { childList: true, subtree: true }); // Liga de volta
                         }
-                    }, 50); 
+                    });
                 });
 
                 const appEl = document.getElementById('app');
