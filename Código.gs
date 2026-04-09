@@ -121,7 +121,7 @@ function getDashboardData() {
 
     const result = { success: true, data: { locais, funcionarios, escalas, funcoes } };
     // Cache por 5 minutos (300 segundos)
-    try { cache.put(cacheKey, JSON.stringify(result), 300); } catch(_) {}
+    try { cache.put(cacheKey, JSON.stringify(result), 300); } catch(cacheErr) { console.error('Cache write failed: ' + cacheErr.message); }
     return result;
   } catch (e) { return { success: false, error: e.message }; }
 }
@@ -152,10 +152,14 @@ function validateConflictMemory(idFuncionario, dateStr, startStr, endStr, ignore
 function invalidateDashboardCache() {
   try {
     CacheService.getScriptCache().remove('dashboard_full_data');
-  } catch(_) {}
+  } catch(e) { console.error('Cache invalidation failed: ' + e.message); }
 }
 
-// Cria índice O(1) de escalas por funcionário
+/**
+ * Cria um índice de escalas indexado por ID_Funcionario para busca O(1).
+ * @param {Object[]} escalas - Array de objetos de escala da planilha ESCALAS.
+ * @returns {Object} Mapa de ID_Funcionario -> escalas[] para acesso direto.
+ */
 function buildEscalasIndex(escalas) {
   const index = {};
   escalas.forEach(esc => {
@@ -165,7 +169,16 @@ function buildEscalasIndex(escalas) {
   return index;
 }
 
-// Validação de conflito otimizada usando índice O(1)
+/**
+ * Valida conflitos de horário para um agente usando índice O(1).
+ * @param {string} idFuncionario - ID do funcionário a verificar.
+ * @param {string} dateStr - Data no formato YYYY-MM-DD.
+ * @param {string} startStr - Horário de entrada no formato HH:MM.
+ * @param {string} endStr - Horário de saída no formato HH:MM.
+ * @param {string|null} ignoreId - ID_Escala a ignorar (para edição).
+ * @param {Object} escalasIndex - Índice criado por buildEscalasIndex().
+ * @throws {Error} Se houver sobreposição de horário para o agente.
+ */
 function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endStr, ignoreId, escalasIndex) {
   const newStart = parseDateTime(dateStr, startStr);
   let newEnd = parseDateTime(dateStr, endStr);

@@ -705,7 +705,7 @@
                 let targetShifts = scheduleViewMode.value === 'grid' ? shifts.value.filter(s => s.Data >= todayIso && s.Status !== 'Cancelado') : shifts.value.filter(s => s.Data < todayIso || s.Status === 'Cancelado');
                 const groups = {};
                 // OTIMIZAÇÃO: comparação de strings ISO é lexicograficamente correta (evita new Date())
-                const sorted = [...targetShifts].sort((a, b) => a.Data < b.Data ? -1 : a.Data > b.Data ? 1 : 0);
+                const sorted = [...targetShifts].sort((a, b) => a.Data.localeCompare(b.Data));
                 sorted.forEach(s => { if(!groups[s.Data]) groups[s.Data] = []; groups[s.Data].push(s); });
                 return groups;
             });
@@ -741,8 +741,11 @@
             // OTIMIZAÇÃO: Cache de datas formatadas para evitar múltiplos new Date() em loops
             const _dateFormatCache = new Map();
             const formatDateFull = (d) => {
+                if (!d || typeof d !== 'string') return '';
                 if (_dateFormatCache.has(d)) return _dateFormatCache.get(d);
                 const formatted = new Date(d + 'T00:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+                // Limitar tamanho do cache para evitar crescimento ilimitado
+                if (_dateFormatCache.size >= 100) _dateFormatCache.clear();
                 _dateFormatCache.set(d, formatted);
                 return formatted;
             };
