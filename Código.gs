@@ -67,11 +67,9 @@ function getSheet(name) {
 function sheetToJSON(data) {
   if (!data || data.length <= 1) return [];
   const headers = data[0];
-  return data.slice(1).map(row => {
-    let obj = {};
-    headers.forEach((h, i) => obj[h] = row[i]);
-    return obj;
-  }).filter(r => r[headers[0]] !== "");
+  return data.slice(1)
+    .map(row => Object.fromEntries(headers.map((h, i) => [h, row[i]])))
+    .filter(r => r[headers[0]] !== "");
 }
 
 function parseDateTime(dateStr, timeStr) {
@@ -87,6 +85,14 @@ function parseDateTime(dateStr, timeStr) {
 
 function getDashboardData() {
   try {
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'dashboard_full_data';
+
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
     const locaisRaw = sheetToJSON(getSheet("LOCAIS_EVENTOS").getDataRange().getDisplayValues());
     const funcionarios = sheetToJSON(getSheet("FUNCIONARIOS").getDataRange().getDisplayValues());
     const escalasRaw = sheetToJSON(getSheet("ESCALAS").getDataRange().getDisplayValues());
@@ -113,7 +119,10 @@ function getDashboardData() {
 
     const escalas = escalasRaw.map(e => ({...e, Status: e.Status || 'Confirmado', Funcao: e.Funcao || 'Vigilante'}));
 
-    return { success: true, data: { locais, funcionarios, escalas, funcoes } };
+    const result = { success: true, data: { locais, funcionarios, escalas, funcoes } };
+    // Cache por 5 minutos (300 segundos)
+    try { cache.put(cacheKey, JSON.stringify(result), 300); } catch(cacheErr) { console.error('Cache write failed: ' + cacheErr.message); }
+    return result;
   } catch (e) { return { success: false, error: e.message }; }
 }
 
@@ -135,6 +144,60 @@ function validateConflictMemory(idFuncionario, dateStr, startStr, endStr, ignore
       if (newStart < escEnd && newEnd > escStart) {
         throw new Error(`O agente selecionado já possui uma escala sobreposta no dia ${dateStr}.`);
       }
+    }
+  }
+}
+
+// Limpa o cache do dashboard após operações de escrita
+function invalidateDashboardCache() {
+  try {
+    CacheService.getScriptCache().remove('dashboard_full_data');
+  } catch(e) { console.error('Cache invalidation failed: ' + e.message); }
+}
+
+/**
+ * Cria um índice de escalas indexado por ID_Funcionario para busca O(1).
+ * @param {Object[]} escalas - Array de objetos de escala da planilha ESCALAS.
+ * @returns {Object} Mapa de ID_Funcionario -> escalas[] para acesso direto.
+ */
+function buildEscalasIndex(escalas) {
+  const index = {};
+  escalas.forEach(esc => {
+    if (!index[esc.ID_Funcionario]) index[esc.ID_Funcionario] = [];
+    index[esc.ID_Funcionario].push(esc);
+  });
+  return index;
+}
+
+/**
+ * Valida conflitos de horário para um agente usando índice O(1).
+ * @param {string} idFuncionario - ID do funcionário a verificar.
+ * @param {string} dateStr - Data no formato YYYY-MM-DD.
+ * @param {string} startStr - Horário de entrada no formato HH:MM.
+ * @param {string} endStr - Horário de saída no formato HH:MM.
+ * @param {string|null} ignoreId - ID_Escala a ignorar (para edição).
+ * @param {Object} escalasIndex - Índice criado por buildEscalasIndex().
+ * @throws {Error} Se houver sobreposição de horário para o agente.
+ */
+function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endStr, ignoreId, escalasIndex) {
+  const newStart = parseDateTime(dateStr, startStr);
+  let newEnd = parseDateTime(dateStr, endStr);
+  if (!newStart || !newEnd) throw new Error("Data ou horário inválido.");
+  if (newEnd <= newStart) newEnd.setDate(newEnd.getDate() + 1);
+
+  // O(1): acesso direto ao invés de O(N) loop sobre todas as escalas
+  const funcionarioEscalas = escalasIndex[idFuncionario] || [];
+
+  for (let esc of funcionarioEscalas) {
+    if (esc.Status === 'Cancelado') continue;
+    if (ignoreId && esc.ID_Escala === ignoreId) continue;
+
+    let escStart = parseDateTime(esc.Data, esc.Horario_Entrada);
+    let escEnd = parseDateTime(esc.Data, esc.Horario_Saida);
+    if (escEnd <= escStart) escEnd.setDate(escEnd.getDate() + 1);
+
+    if (newStart < escEnd && newEnd > escStart) {
+      throw new Error(`O agente selecionado já possui uma escala sobreposta no dia ${dateStr}.`);
     }
   }
 }
@@ -162,6 +225,7 @@ function saveFuncao(nome) {
     const sheet = getSheet("FUNCOES");
     const id = Utilities.getUuid();
     sheet.appendRow([id, nome]);
+    invalidateDashboardCache();
     return { success: true, data: { ID: id, Nome: nome } };
   } catch (e) { return { success: false, error: e.message }; }
 }
@@ -172,6 +236,7 @@ function saveFuncionario(payload) {
     const id = isNew ? Utilities.getUuid() : payload.ID;
     const row = [id, payload.Nome, payload.Telefone, payload.Status || 'Ativo'];
     updateOrAddRow("FUNCIONARIOS", 0, id, row);
+    invalidateDashboardCache();
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 }
@@ -182,6 +247,7 @@ function saveLocal(payload) {
     const id = isNew ? Utilities.getUuid() : payload.ID;
     const row = [id, payload.Nome, payload.Tipo, payload.Data_Inicio||'', payload.Hora_Inicio||'', payload.Data_Fim||'', payload.Hora_Fim||'', payload.Status || 'Ativo'];
     updateOrAddRow("LOCAIS_EVENTOS", 0, id, row);
+    invalidateDashboardCache();
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 }
@@ -194,9 +260,12 @@ function saveEscalaBatch(payloads) {
     // Ler todo o banco atual APENAS UMA VEZ
     const escalasAtuais = sheetToJSON(sheet.getDataRange().getDisplayValues());
     
+    // OTIMIZAÇÃO: criar índice O(1) uma única vez antes de todas as validações
+    const escalasIndex = buildEscalasIndex(escalasAtuais);
+
     // Validar conflitos na memória para TODOS os agentes antes de salvar qualquer um
     for (let payload of payloads) {
-      validateConflictMemory(payload.ID_Funcionario, payload.Data, payload.Horario_Entrada, payload.Horario_Saida, payload.ID_Escala, escalasAtuais);
+      validateConflictMemoryOptimized(payload.ID_Funcionario, payload.Data, payload.Horario_Entrada, payload.Horario_Saida, payload.ID_Escala, escalasIndex);
     }
 
     // Salvar todos (mantendo updateOrAddRow para compatibilidade)
@@ -211,6 +280,7 @@ function saveEscalaBatch(payloads) {
       updateOrAddRow("ESCALAS", 0, id, row);
     }
 
+    invalidateDashboardCache();
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 }
@@ -224,6 +294,7 @@ function deleteRow(sheetName, id) {
       if (data[i][0] === id) { rowIndex = i + 1; break; }
     }
     if (rowIndex > -1) sheet.deleteRow(rowIndex);
+    invalidateDashboardCache();
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 }
