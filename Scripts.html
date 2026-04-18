@@ -7,11 +7,8 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-    // 🛡️ PRE-FLIGHT DB CHECK: Gatilho fantasma de segurança. 
-    // Garante que o banco seja construído no Google Sheets instantaneamente,
-    // blindando o backend contra falhas ou travamentos no frontend.
+    // 🛡️ GATILHO DE SEGURANÇA: Garante construção do DB no Sheets
     if (typeof google !== 'undefined' && google.script && google.script.run) {
-        console.log("🚀 Disparando gatilho de segurança para criação do banco de dados...");
         google.script.run.getDashboardData(); 
     }
 
@@ -98,92 +95,31 @@
                 return shifts.value.filter(s => s.Data === today && s.Status !== 'Cancelado');
             });
 
-            // 🔥 FIX: Quarentena de variáveis (Strings Literais) para blindar contra Erro de Sintaxe
-            const formGuard = ref({ 
-                'ID': null, 
-                'Nome': '', 
-                'Telefone': '', 
-                'Status': 'Ativo' 
-            });
-            
-            const formLocation = ref({ 
-                'ID': null, 
-                'Nome': '', 
-                'isEvent': false, 
-                'Endereco': '', 
-                'Cidade': '', 
-                'Responsavel': '', 
-                'Telefone': '', 
-                'Data_Inicio': '', 
-                'Hora_Inicio': '', 
-                'Data_Fim': '', 
-                'Hora_Fim': '', 
-                'Status': 'Ativo' 
-            });
-            
-            const formRole = ref({ 
-                'Nome': '', 
-                'Valor_Base': '' 
-            });
-            
-            const formShift = ref({ 
-                'ID_Escala': null, 
-                'ID_LocalEvento': '', 
-                'Data': '', 
-                'Horario_Entrada': '', 
-                'Horario_Saida': '', 
-                'Status': 'Confirmado', 
-                'Valor': '', 
-                'Data_Pagamento': '', 
-                'Uniforme': '', 
-                'Escopo': '', 
-                'Contato': '',
-                'agentes': [{ 'ID_Funcionario': '', 'Funcao': '' }] 
-            });
+            const formGuard = ref({ 'ID': null, 'Nome': '', 'Telefone': '', 'Status': 'Ativo' });
+            const formLocation = ref({ 'ID': null, 'Nome': '', 'isEvent': false, 'Endereco': '', 'Cidade': '', 'Responsavel': '', 'Telefone': '', 'Data_Inicio': '', 'Hora_Inicio': '', 'Data_Fim': '', 'Hora_Fim': '', 'Status': 'Ativo' });
+            const formRole = ref({ 'Nome': '', 'Valor_Base': '' });
+            const formShift = ref({ 'ID_Escala': null, 'ID_LocalEvento': '', 'Data': '', 'Horario_Entrada': '', 'Horario_Saida': '', 'Status': 'Confirmado', 'Valor': '', 'Data_Pagamento': '', 'Uniforme': '', 'Escopo': '', 'Contato': '', 'agentes': [{ 'ID_Funcionario': '', 'Funcao': '' }] });
 
             const isEditingShift = computed(() => !!formShift.value.ID_Escala);
 
             const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; document.documentElement.setAttribute('data-bs-theme', isDarkMode.value ? 'dark' : 'light'); };
             const toggleSidebar = () => mobileMenuOpen.value = !mobileMenuOpen.value;
             const switchView = (view) => { currentView.value = view; mobileMenuOpen.value = false; };
-            
             const closeModal = () => { activeModal.value = null; };
-            const closeRoleModal = () => { 
-                activeModal.value = 'shift';
-                if(pendingRoleIndex.value !== null) formShift.value.agentes[pendingRoleIndex.value].Funcao = ''; 
-            };
+            const closeRoleModal = () => { activeModal.value = 'shift'; if(pendingRoleIndex.value !== null) formShift.value.agentes[pendingRoleIndex.value].Funcao = ''; };
 
             const openModal = (modalName) => { 
                 errorMsg.value = ''; 
-                if(modalName === 'guard') {
-                    formGuard.value = { 'ID': null, 'Nome': '', 'Telefone': '', 'Status': 'Ativo' };
-                }
-                if(modalName === 'location') {
-                    formLocation.value = { 
-                        'ID': null, 'Nome': '', 'isEvent': false, 'Endereco': '', 'Cidade': '', 
-                        'Responsavel': '', 'Telefone': '', 'Data_Inicio': '', 'Hora_Inicio': '', 
-                        'Data_Fim': '', 'Hora_Fim': '', 'Status': 'Ativo' 
-                    };
-                }
-                if(modalName === 'shift') {
-                    formShift.value = { 
-                        'ID_Escala': null, 'ID_LocalEvento': '', 'Data': '', 'Horario_Entrada': '', 
-                        'Horario_Saida': '', 'Status': 'Confirmado', 'Valor': '', 'Data_Pagamento': '', 
-                        'Uniforme': '', 'Escopo': '', 'Contato': '', 
-                        'agentes': [{ 'ID_Funcionario': '', 'Funcao': '' }] 
-                    };
-                }
+                if(modalName === 'guard') formGuard.value = { 'ID': null, 'Nome': '', 'Telefone': '', 'Status': 'Ativo' };
+                if(modalName === 'location') formLocation.value = { 'ID': null, 'Nome': '', 'isEvent': false, 'Endereco': '', 'Cidade': '', 'Responsavel': '', 'Telefone': '', 'Data_Inicio': '', 'Hora_Inicio': '', 'Data_Fim': '', 'Hora_Fim': '', 'Status': 'Ativo' };
+                if(modalName === 'shift') formShift.value = { 'ID_Escala': null, 'ID_LocalEvento': '', 'Data': '', 'Horario_Entrada': '', 'Horario_Saida': '', 'Status': 'Confirmado', 'Valor': '', 'Data_Pagamento': '', 'Uniforme': '', 'Escopo': '', 'Contato': '', 'agentes': [{ 'ID_Funcionario': '', 'Funcao': '' }] };
                 activeModal.value = modalName; 
             };
             
-            const _dateFormatCache = new Map();
             const formatDateFull = (d) => {
                 if (!d) return '';
-                if (_dateFormatCache.has(d)) return _dateFormatCache.get(d);
-                const formatted = new Date(d + 'T00:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-                if (_dateFormatCache.size >= 100) _dateFormatCache.clear();
-                _dateFormatCache.set(d, formatted);
-                return formatted;
+                // Usando concatenação tradicional para evitar problemas de parsing no GAS
+                return new Date(d + 'T00:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
             };
 
             const loadData = async () => {
@@ -195,9 +131,7 @@
                         shifts.value = data.escalas || []; 
                         funcoes.value = data.funcoes || []; 
                     }
-                } catch(e) { 
-                    alert("Erro de Conexão: " + e.message); 
-                }
+                } catch(e) { console.error(e); }
             };
 
             const addAgentRow = () => { formShift.value.agentes.push({ 'ID_Funcionario': '', 'Funcao': '' }); };
@@ -217,175 +151,43 @@
                 try {
                     const res = await runServer('saveFuncao', formRole.value);
                     funcoes.value.push(res.data);
-                    if(pendingRoleIndex.value !== null) {
-                        formShift.value.agentes[pendingRoleIndex.value].Funcao = res.data.Nome;
-                    }
+                    if(pendingRoleIndex.value !== null) formShift.value.agentes[pendingRoleIndex.value].Funcao = res.data.Nome;
                     activeModal.value = 'shift';
-                } catch(e) { 
-                    alert("Erro ao criar função."); 
-                } finally { 
-                    isLoading.value = false; 
-                }
+                } catch(e) { alert("Erro ao criar função."); } finally { isLoading.value = false; }
             };
-
-            watch(() => formShift.value.ID_LocalEvento, (newLocId) => {
-                if(newLocId && !isEditingShift.value) {
-                    const loc = locations.value.find(l => l.ID === newLocId);
-                    if(loc && loc.Tipo === 'Evento' && loc.Data_Inicio) {
-                        formShift.value.Data = loc.Data_Inicio;
-                        formShift.value.Horario_Entrada = loc.Hora_Inicio;
-                        formShift.value.Horario_Saida = loc.Hora_Fim;
-                    }
-                }
-            });
 
             const saveLocation = async () => { 
                 isLoading.value = true; 
                 try { 
-                    const mapsQuery = encodeURIComponent(`${formLocation.value.Endereco}, ${formLocation.value.Cidade}`);
-                    const mapsLink = formLocation.value.Endereco ? `https://www.google.com/maps/search/?api=1&query=${mapsQuery}` : '';
-
-                    const payload = { 
-                        ...formLocation.value, 
-                        'Tipo': formLocation.value.isEvent ? 'Evento' : 'Fixo',
-                        'Maps_Link': mapsLink 
-                    };
-
-                    await runServer('saveLocal', payload); 
-                    closeModal(); 
-                    await loadData(); 
-                } catch(e) { 
-                    alert(e.message); 
-                } finally { 
-                    isLoading.value = false; 
-                } 
+                    const q = encodeURIComponent(formLocation.value.Endereco + ', ' + formLocation.value.Cidade);
+                    const mapsLink = formLocation.value.Endereco ? 'https://www.google.com/maps/search/?api=1&query=' + q : '';
+                    await runServer('saveLocal', { ...formLocation.value, 'Tipo': formLocation.value.isEvent ? 'Evento' : 'Fixo', 'Maps_Link': mapsLink }); 
+                    closeModal(); await loadData(); 
+                } catch(e) { alert(e.message); } finally { isLoading.value = false; } 
             };
 
-            // 🔥 FIX: Mapeamento blindado com Strings Literais
             const saveShift = async () => {
-                isLoading.value = true; 
-                errorMsg.value = '';
+                isLoading.value = true; errorMsg.value = '';
                 try {
-                    const payloads = formShift.value.agentes.map(ag => {
-                        return {
-                            'ID_Escala': formShift.value.ID_Escala,
-                            'ID_LocalEvento': formShift.value.ID_LocalEvento,
-                            'Data': formShift.value.Data,
-                            'Horario_Entrada': formShift.value.Horario_Entrada,
-                            'Horario_Saida': formShift.value.Horario_Saida,
-                            'ID_Funcionario': ag.ID_Funcionario,
-                            'Funcao': ag.Funcao,
-                            'Status': formShift.value.Status,
-                            'Valor': formShift.value.Valor,
-                            'Data_Pagamento': formShift.value.Data_Pagamento,
-                            'Uniforme': formShift.value.Uniforme,
-                            'Escopo': formShift.value.Escopo,
-                            'Contato': formShift.value.Contato
-                        };
-                    });
-                    
+                    const payloads = formShift.value.agentes.map(ag => ({
+                        'ID_Escala': formShift.value.ID_Escala, 'ID_LocalEvento': formShift.value.ID_LocalEvento, 'Data': formShift.value.Data, 'Horario_Entrada': formShift.value.Horario_Entrada, 'Horario_Saida': formShift.value.Horario_Saida, 'ID_Funcionario': ag.ID_Funcionario, 'Funcao': ag.Funcao, 'Status': formShift.value.Status, 'Valor': formShift.value.Valor, 'Data_Pagamento': formShift.value.Data_Pagamento, 'Uniforme': formShift.value.Uniforme, 'Escopo': formShift.value.Escopo, 'Contato': formShift.value.Contato
+                    }));
                     await runServer('saveEscalaBatch', payloads);
-                    closeModal(); 
-                    await loadData();
-                    
-                    if(scheduleViewMode.value === 'calendar') {
-                        initCalendar();
-                    }
-                } catch(e) { 
-                    errorMsg.value = e.message; 
-                } finally { 
-                    isLoading.value = false; 
-                }
+                    closeModal(); await loadData();
+                    if(scheduleViewMode.value === 'calendar') initCalendar();
+                } catch(e) { errorMsg.value = e.message; } finally { isLoading.value = false; }
             };
 
             const saveGuard = async () => { 
                 isLoading.value = true; 
-                try { 
-                    await runServer('saveFuncionario', formGuard.value); 
-                    closeModal(); 
-                    await loadData(); 
-                } catch(e) { 
-                    alert(e.message); 
-                } finally { 
-                    isLoading.value = false; 
-                } 
-            };
-            
-            const editLocation = (loc) => { 
-                formLocation.value = { 
-                    ...loc, 
-                    'Endereco': loc['Endereço'] || '', 
-                    'Responsavel': loc['Responsável'] || '',
-                    'isEvent': loc.Tipo === 'Evento' 
-                }; 
-                activeModal.value = 'location'; 
-            };
-            
-            const editGuard = (g) => { 
-                formGuard.value = { ...g }; 
-                activeModal.value = 'guard'; 
-            };
-            
-            const editShift = (shift) => { 
-                formShift.value = { 
-                    'ID_Escala': shift.ID_Escala, 
-                    'ID_LocalEvento': shift.ID_LocalEvento, 
-                    'Data': shift.Data, 
-                    'Horario_Entrada': shift.Horario_Entrada, 
-                    'Horario_Saida': shift.Horario_Saida, 
-                    'Status': shift.Status,
-                    'Valor': shift.Valor || '', 
-                    'Data_Pagamento': shift.Data_Pagamento || '', 
-                    'Uniforme': shift.Uniforme || '', 
-                    'Escopo': shift.Escopo || '', 
-                    'Contato': shift.Contato || '',
-                    'agentes': [{ 
-                        'ID_Funcionario': shift.ID_Funcionario, 
-                        'Funcao': shift.Funcao 
-                    }] 
-                }; 
-                activeModal.value = 'shift'; 
-            };
-            
-            const changeLocationStatus = async (id, s) => { 
-                if(confirm("Deseja cancelar?")){ 
-                    isLoading.value = true; 
-                    try{ 
-                        await runServer('saveLocal', {...locations.value.find(l => l.ID === id), Status: s}); 
-                        await loadData(); 
-                    } catch(e){} 
-                    finally{isLoading.value=false;} 
-                }
-            };
-            
-            const changeGuardStatus = async (id, s) => { 
-                isLoading.value = true; 
-                try{ 
-                    await runServer('saveFuncionario', {...guards.value.find(g => g.ID === id), Status: s}); 
-                    await loadData(); 
-                } catch(e){} 
-                finally{isLoading.value=false;} 
-            };
-            
-            const changeShiftStatus = async (id, s) => { 
-                if(confirm("Deseja cancelar este turno?")){ 
-                    isLoading.value = true; 
-                    try{ 
-                        await runServer('saveEscalaBatch', [{...shifts.value.find(x => x.ID_Escala === id), Status: s}]); 
-                        await loadData(); 
-                        if(scheduleViewMode.value === 'calendar') initCalendar(); 
-                    } catch(e){} 
-                    finally{isLoading.value=false;} 
-                }
+                try { await runServer('saveFuncionario', formGuard.value); closeModal(); await loadData(); } 
+                catch(e) { alert(e.message); } finally { isLoading.value = false; } 
             };
             
             const deleteRecord = async (sheet, id) => { 
-                if(confirm("A exclusão não pode ser desfeita. Continuar?")){ 
+                if(confirm("Continuar com a exclusão?")){ 
                     isLoading.value = true; 
-                    try{ 
-                        await runServer('deleteRow', sheet, id); 
-                        await loadData(); 
-                    } catch(e){} 
+                    try{ await runServer('deleteRow', sheet, id); await loadData(); } catch(e){} 
                     finally{isLoading.value=false;} 
                 }
             };
@@ -395,37 +197,33 @@
                 doc.setFillColor(40, 40, 43); doc.rect(0, 0, 210, 25, 'F');
                 doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RINCON OPS", 14, 16);
                 doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("ESCALA TÁTICA", 155, 16);
-                doc.setTextColor(40, 40, 43); doc.setFontSize(14); doc.text(`Data Base: ${formatDateFull(dateStr)}`, 14, 40);
-                const tableData = shiftsArray.map(s => [ getLocationName(s.ID_LocalEvento), getGuardName(s.ID_Funcionario), s.Funcao || 'Vigilante', `${s.Horario_Entrada} as ${s.Horario_Saida}` ]);
+                doc.setTextColor(40, 40, 43); doc.setFontSize(14); doc.text("Data Base: " + formatDateFull(dateStr), 14, 40);
+                const tableData = shiftsArray.map(s => [ getLocationName(s.ID_LocalEvento), getGuardName(s.ID_Funcionario), s.Funcao || 'Vigilante', s.Horario_Entrada + ' as ' + s.Horario_Saida ]);
                 doc.autoTable({ startY: 48, head: [['Local / Evento', 'Agente', 'Função', 'Turno']], body: tableData, theme: 'grid', headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0] }, styles: { fontSize: 9 } });
-                doc.save(`escala_${dateStr}.pdf`);
-            };
-
-            const generatePDFAll = () => {
-                const doc = new jsPDF();
-                doc.setFillColor(40, 40, 43); doc.rect(0, 0, 210, 25, 'F');
-                doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RINCON OPS", 14, 16);
-                doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("RELATÓRIO GERAL", 155, 16);
-                let y = 35;
-                for (let date in groupedShifts.value) {
-                    if(y > 250) { doc.addPage(); y = 20; }
-                    doc.setTextColor(40, 40, 43); doc.setFontSize(12); doc.text(`Dia: ${formatDateFull(date)}`, 14, y);
-                    const tableData = groupedShifts.value[date].map(s => [ getLocationName(s.ID_LocalEvento), getGuardName(s.ID_Funcionario), s.Funcao || '-', `${s.Horario_Entrada}-${s.Horario_Saida}` ]);
-                    doc.autoTable({ startY: y + 5, head: [['Local', 'Agente', 'Função', 'Horário']], body: tableData, theme: 'grid', headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0] }, styles: { fontSize: 8 }, margin:{bottom: 15} });
-                    y = doc.lastAutoTable.finalY + 15;
-                }
-                doc.save(`todas_escalas.pdf`);
+                doc.save("escala_" + dateStr + ".pdf");
             };
 
             let calendarInstance = null;
             const initCalendar = () => {
                 const el = document.getElementById('calendar'); 
                 if(!el) return; 
+                
+                // 🛡️ SOLUÇÃO: CONCATENAÇÃO TRADICIONAL PARA BLINDAR O PARSER DO GOOGLE
                 const events = shifts.value.filter(s => s.Status !== 'Cancelado').map(s => {
-                    const dtStart = new Date(`${s.Data}T${s.Horario_Entrada}:00`); let dtEnd = new Date(`${s.Data}T${s.Horario_Saida}:00`);
+                    const dtStart = new Date(s.Data + 'T' + s.Horario_Entrada + ':00'); 
+                    let dtEnd = new Date(s.Data + 'T' + s.Horario_Saida + ':00');
                     if(dtEnd <= dtStart) dtEnd.setDate(dtEnd.getDate() + 1);
-                    return { id: s.ID_Escala, title: `${getGuardName(s.ID_Funcionario)} @ ${getLocationName(s.ID_LocalEvento)}`, start: dtStart.toISOString(), end: dtEnd.toISOString(), backgroundColor: 'var(--rincon-gold)', borderColor: 'transparent', textColor: 'black' };
+                    return { 
+                        id: s.ID_Escala, 
+                        title: getGuardName(s.ID_Funcionario) + ' @ ' + getLocationName(s.ID_LocalEvento), 
+                        start: dtStart.toISOString(), 
+                        end: dtEnd.toISOString(), 
+                        backgroundColor: 'var(--rincon-gold)', 
+                        borderColor: 'transparent', 
+                        textColor: 'black' 
+                    };
                 });
+
                 if (calendarInstance) {
                     calendarInstance.batchRendering(() => { calendarInstance.removeAllEvents(); calendarInstance.addEventSource(events); });
                 } else {
@@ -442,20 +240,6 @@
             });
             
             onMounted(() => { 
-                let lucideRafId = null;
-                const observer = new MutationObserver(() => {
-                    if (lucideRafId) cancelAnimationFrame(lucideRafId);
-                    lucideRafId = requestAnimationFrame(() => {
-                        if (window.lucide) {
-                            observer.disconnect(); window.lucide.createIcons();
-                            const appEl = document.getElementById('app');
-                            if(appEl) observer.observe(appEl, { childList: true, subtree: true });
-                        }
-                    });
-                });
-                const appEl = document.getElementById('app');
-                if(appEl) observer.observe(appEl, { childList: true, subtree: true });
-
                 let simProgress = setInterval(() => {
                     if(loadingProgress.value < 85) loadingProgress.value += Math.random() * 20;
                     if(loadingProgress.value > 50) loadingMessage.value = 'A Carregar Módulos de Operação...';
@@ -477,9 +261,7 @@
                 filteredLocations, activeLocations, filteredGuards, activeGuards, groupedShifts, shiftsToday, guards, locations, shifts, funcoes, topLocations,
                 formGuard, formLocation, formShift, formRole, isEditingShift,
                 toggleTheme, toggleSidebar, switchView, openModal, closeModal, closeRoleModal, formatDateFull, addAgentRow, removeAgentRow, handleRoleChange, saveRole,
-                getGuardName, getLocationName, saveGuard, saveLocation, saveShift, deleteRecord,
-                editLocation, changeLocationStatus, editGuard, changeGuardStatus, editShift, changeShiftStatus,
-                generatePDFDay, generatePDFAll
+                getGuardName, getLocationName, saveGuard, saveLocation, saveShift, deleteRecord, generatePDFDay
             };
         }
     }).mount('#app');
