@@ -1,0 +1,85 @@
+<div>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-5 border-bottom pb-3" style="border-color: var(--border-color) !important;">
+        <div>
+            <h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Visão Geral</h2>
+            <p class="mb-0" style="color: var(--text-muted);">Monitoramento da operação em tempo real.</p>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-5">
+        <div class="col-12 col-md-4" @click="switchView('events')">
+            <div class="glass-panel p-4 rounded-3 h-100 card-custom d-flex flex-column align-items-center justify-content-center text-center">
+                <div class="p-3 rounded-circle bg-body border mb-3" style="border-color: var(--border-color) !important;"><i data-lucide="map-pin" class="text-info" style="width: 32px; height: 32px;"></i></div>
+                <h4 class="font-heading fw-bold mb-1" style="color: var(--text-main);">Locais & Eventos</h4>
+                <p class="small m-0" style="color: var(--text-muted);">Gerenciar postos fixos e eventos</p>
+            </div>
+        </div>
+        <div class="col-12 col-md-4" @click="switchView('guards')">
+            <div class="glass-panel p-4 rounded-3 h-100 card-custom d-flex flex-column align-items-center justify-content-center text-center">
+                <div class="p-3 rounded-circle bg-body border mb-3" style="border-color: var(--border-color) !important;"><i data-lucide="users" class="text-success" style="width: 32px; height: 32px;"></i></div>
+                <h4 class="font-heading fw-bold mb-1" style="color: var(--text-main);">Gestão de Efetivo</h4>
+                <p class="small m-0" style="color: var(--text-muted);">Atualizar vigilantes</p>
+            </div>
+        </div>
+        <div class="col-12 col-md-4" @click="switchView('schedule')">
+            <div class="glass-panel p-4 rounded-3 h-100 card-custom d-flex flex-column align-items-center justify-content-center text-center">
+                <div class="p-3 rounded-circle bg-body border mb-3" style="border-color: var(--border-color) !important;"><i data-lucide="calendar-check" class="text-gold" style="width: 32px; height: 32px;"></i></div>
+                <h4 class="font-heading fw-bold mb-1" style="color: var(--text-main);">Escalas Táticas</h4>
+                <p class="small m-0" style="color: var(--text-muted);">Definir horários e turnos</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🔥 NOVO: Estrutura Base do Dashboard Nativo -->
+    <div class="row g-4">
+        <!-- Coluna Esquerda: Turnos de Hoje -->
+        <div class="col-12 col-lg-6">
+            <div class="glass-panel rounded-3 d-flex flex-column" style="height: 400px;">
+                <div class="p-4 border-bottom d-flex justify-content-between align-items-center" style="background-color: var(--bg-surface); border-color: var(--border-color) !important;">
+                    <h5 class="font-heading fw-bold m-0 d-flex align-items-center gap-2" style="color: var(--text-main);"><span class="status-dot text-gold animate-pulse"></span> Turnos de Hoje</h5>
+                    <span class="badge font-monospace" style="background-color: var(--bg-body); color: var(--text-muted); border: 1px solid var(--border-color);">{{ todayDate }}</span>
+                </div>
+                <div class="p-3 overflow-auto flex-grow-1">
+                    <div v-if="shiftsToday.length === 0" class="text-center py-5" style="color: var(--text-muted);">Sem turnos agendados para hoje.</div>
+                    <transition-group name="list">
+                        <div v-for="shift in shiftsToday" :key="shift.ID_Escala" class="card-custom p-3 mb-2 rounded-3 d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="avatar-initials shadow-sm">{{ getInitials(getGuardName(shift.ID_Funcionario)) }}</div>
+                                <div>
+                                    <div class="fw-bold fs-6" style="color: var(--text-main);">{{ getGuardName(shift.ID_Funcionario) }}</div>
+                                    <div class="small fw-semibold mt-1" style="color: var(--text-muted);"><i data-lucide="map-pin" style="width: 12px; margin-right: 4px;"></i> {{ getLocationName(shift.ID_LocalEvento) }}</div>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="font-monospace fw-bold bg-body px-3 py-2 rounded-pill shadow-sm" style="color: var(--rincon-gold); border: 1px solid var(--border-color);">{{ shift.Horario_Entrada }} - {{ shift.Horario_Saida }}</div>
+                            </div>
+                        </div>
+                    </transition-group>
+                </div>
+            </div>
+        </div>
+
+        <!-- Coluna Direita: BI e Métricas -->
+        <div class="col-12 col-lg-6">
+            <div class="glass-panel rounded-3 d-flex flex-column" style="height: 400px;">
+                <div class="p-4 border-bottom" style="background-color: var(--bg-surface); border-color: var(--border-color) !important;">
+                    <h5 class="font-heading fw-bold m-0 text-gold"><i data-lucide="bar-chart-3" style="width: 18px; margin-right: 8px;"></i> Métrica Operacional: Top Locais</h5>
+                </div>
+                <div class="p-3 overflow-auto flex-grow-1">
+                    <div v-if="topLocations.length === 0" class="text-center py-5" style="color: var(--text-muted);">Aguardando geração de escalas.</div>
+                    
+                    <div v-for="(loc, index) in topLocations" :key="index" class="mb-3">
+                        <div class="d-flex justify-content-between mb-1 small fw-bold">
+                            <span style="color: var(--text-main);">{{ loc.nome }}</span>
+                            <span class="text-muted">{{ loc.total }} Escala(s)</span>
+                        </div>
+                        <div class="progress" style="height: 8px; background-color: var(--bg-body); border: 1px solid var(--border-color);">
+                            <!-- A barra preenche com base no maior valor -->
+                            <div class="progress-bar bg-warning" role="progressbar" :style="{ width: (loc.total / topLocations[0].total * 100) + '%' }"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
