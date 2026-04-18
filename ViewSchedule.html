@@ -1,0 +1,73 @@
+<div>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
+        <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Escalas Táticas</h2></div>
+        <div class="d-flex gap-3 align-items-center mt-3 mt-md-0">
+            <button @click="generatePDFAll" class="btn btn-outline-secondary btn-sm d-none d-md-flex align-items-center gap-2" style="color: var(--text-main); border-color: var(--border-color);" type="button"><i data-lucide="file-down" style="width: 14px;"></i> Exportar Todas</button>
+            <div class="sub-nav-tabs">
+                <button @click="scheduleViewMode = 'grid'" :class="['sub-nav-btn', { active: scheduleViewMode === 'grid' }]">Próximos</button>
+                <button @click="scheduleViewMode = 'history'" :class="['sub-nav-btn', { active: scheduleViewMode === 'history' }]">Histórico</button>
+                <button @click="scheduleViewMode = 'calendar'" :class="['sub-nav-btn', { active: scheduleViewMode === 'calendar' }]">Calendário</button>
+            </div>
+            <button @click="openModal('shift')" class="btn btn-gold fw-bold d-flex align-items-center gap-2" type="button"><i data-lucide="plus" style="width: 16px;"></i> ALOCAR</button>
+        </div>
+    </div>
+
+    <div v-show="scheduleViewMode === 'grid' || scheduleViewMode === 'history'" class="glass-panel p-4 rounded-3 overflow-auto" style="max-height: 75vh;">
+        <div v-if="Object.keys(groupedShifts).length === 0" class="text-center py-5 text-muted">
+            <i data-lucide="calendar-x" style="width: 48px; height: 48px; opacity: 0.5;" class="mb-3"></i>
+            <h5>Nenhuma escala encontrada.</h5>
+        </div>
+        
+        <div v-for="(shiftsGroup, date) in groupedShifts" :key="date" class="mb-5">
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3 sticky-top bg-body z-1" style="border-color: var(--border-color) !important;">
+                <h5 class="fw-bold text-gold text-capitalize m-0"><i data-lucide="calendar-days" style="width: 18px; margin-right: 8px;"></i> {{ formatDateFull(date) }}</h5>
+                <button @click="generatePDFDay(date, shiftsGroup)" class="btn btn-sm btn-link text-muted p-0 text-decoration-none hover-text-gold d-flex align-items-center gap-1" type="button"><i data-lucide="download" style="width: 14px;"></i> PDF Dia</button>
+            </div>
+
+            <!-- Layout em Lista Horizontal -->
+            <div class="row g-2">
+                <transition-group name="list">
+                    <div v-for="shift in shiftsGroup" :key="shift.ID_Escala" class="col-12">
+                        <div class="card-custom p-3 rounded-3 d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3">
+                            
+                            <!-- Bloco Esquerdo: Avatar + Nome + Local -->
+                            <div class="d-flex align-items-center gap-3">
+                                <div class="avatar-initials shadow-sm flex-shrink-0" style="width: 45px; height: 45px; font-size: 1.1rem;">{{ getInitials(getGuardName(shift.ID_Funcionario)) }}</div>
+                                <div>
+                                    <div class="d-flex align-items-center flex-wrap gap-2">
+                                        <span class="fw-bold fs-6" style="color: var(--text-main);">{{ getGuardName(shift.ID_Funcionario) }}</span>
+                                        <span class="badge bg-body text-muted border" style="border-color: var(--border-color) !important;">{{ shift.Funcao || 'Vigilante' }}</span>
+                                    </div>
+                                    <div class="small mt-1 text-gold fw-bold"><i data-lucide="map-pin" style="width: 12px;"></i> {{ getLocationName(shift.ID_LocalEvento) }}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Bloco Direito: Horário + Status + Ações -->
+                            <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-3 w-100 w-md-auto mt-2 mt-md-0 pt-2 pt-md-0 border-top border-md-0" style="border-color: var(--border-color) !important;">
+                                <div class="font-monospace fw-bold px-3 py-1 rounded-pill" style="background-color: var(--bg-body); color: var(--rincon-gold); border: 1px solid var(--border-color);">
+                                    <i data-lucide="clock" style="width: 12px; margin-right: 4px;"></i> {{ shift.Horario_Entrada }} - {{ shift.Horario_Saida }}
+                                </div>
+                                
+                                <span v-if="shift.Status === 'Cancelado'" class="badge bg-danger bg-opacity-25 text-danger border border-danger px-2 py-1">CANCELADO</span>
+                                <span v-else class="badge bg-body text-muted border border-secondary border-opacity-25 px-2 py-1 text-uppercase d-none d-sm-block">{{ shift.Status }}</span>
+
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-link text-muted p-2 border-0 dropdown-toggle" data-bs-toggle="dropdown" type="button"><i data-lucide="more-vertical" style="width: 16px; pointer-events: none;"></i></button>
+                                    <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="background-color: var(--bg-surface); border-color: var(--border-color);">
+                                        <li><a class="dropdown-item" href="#" @click.prevent="editShift(shift)"><i data-lucide="pencil" style="width: 14px; margin-right:8px;"></i> Editar</a></li>
+                                        <li v-if="shift.Status !== 'Cancelado'"><a class="dropdown-item text-danger" href="#" @click.prevent="changeShiftStatus(shift.ID_Escala, 'Cancelado')"><i data-lucide="ban" style="width: 14px; margin-right:8px;"></i> Cancelar Turno</a></li>
+                                    </ul>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </transition-group>
+            </div>
+        </div>
+    </div>
+
+    <div v-show="scheduleViewMode === 'calendar'" class="glass-panel p-4 rounded-3">
+        <div id="calendar" style="min-height: 650px;"></div>
+    </div>
+</div>
