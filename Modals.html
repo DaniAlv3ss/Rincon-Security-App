@@ -1,0 +1,257 @@
+<!-- Modal Funcionario -->
+<div v-if="activeModal === 'guard'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold font-heading">{{ formGuard.ID ? 'Editar Agente' : 'Novo Agente' }}</h5>
+                <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+            </div>
+            <div class="modal-body">
+                <form @submit.prevent="saveGuard">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold text-uppercase">Nome</label>
+                        <input v-model="formGuard.Nome" type="text" class="form-control" required placeholder="Ex: João Alves">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold text-uppercase">Nº de Telefone</label>
+                        <input v-model="formGuard.Telefone" type="tel" class="form-control" required placeholder="(00) 00000-0000">
+                    </div>
+                    <button type="submit" class="btn btn-gold fw-bold w-100 mt-4 py-2">SALVAR</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 🔥 NOVO: Modal Local Estruturado -->
+<div v-if="activeModal === 'location'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header border-bottom border-secondary border-opacity-25">
+                <h5 class="modal-title fw-bold font-heading text-info"><i data-lucide="map-pin" style="width: 20px; margin-right: 8px;"></i> {{ formLocation.ID ? 'Editar Base Operacional' : 'Nova Base Operacional / Evento' }}</h5>
+                <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+            </div>
+            <div class="modal-body p-4 p-lg-5" style="max-height: 80vh; overflow-y: auto;">
+                <form @submit.prevent="saveLocation">
+                    
+                    <!-- BLOCO 1: Informações Básicas -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">1. Informações Base</h6>
+                        <div class="bg-body p-3 rounded-3 border" style="border-color: var(--border-color) !important;">
+                            <div class="mb-3">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Nome do Posto / Evento</label>
+                                <input v-model="formLocation.Nome" type="text" class="form-control" required placeholder="Ex: Shopping Centro ou Festa de Verão">
+                            </div>
+                            <div class="form-check form-switch pt-2">
+                                <input class="form-check-input ms-0 me-3" type="checkbox" role="switch" id="isEventCheck" v-model="formLocation.isEvent">
+                                <label class="form-check-label text-gold fw-bold" for="isEventCheck">Este local é um Evento Temporário?</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BLOCO 2: Georreferenciamento -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">2. Georreferenciamento (Mapas)</h6>
+                        <div class="bg-body p-4 rounded-3 border" style="border-color: var(--border-color) !important;">
+                            <div class="row g-3">
+                                <div class="col-12 col-md-8">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Endereço (Rua, Nº, Bairro)</label>
+                                    <input v-model="formLocation.Endereco" type="text" class="form-control" required placeholder="Ex: Av. da Liberdade, 100">
+                                </div>
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Cidade</label>
+                                    <input v-model="formLocation.Cidade" type="text" class="form-control" required placeholder="Ex: Lisboa">
+                                </div>
+                                <div class="col-12">
+                                    <small class="text-info"><i data-lucide="info" style="width: 12px;"></i> O link do Google Maps será gerado automaticamente para os vigilantes com base nestes dados.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BLOCO 3: Contato (Opcional) -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">3. Contato no Local (Opcional)</h6>
+                        <div class="bg-body p-4 rounded-3 border" style="border-color: var(--border-color) !important;">
+                            <div class="row g-3">
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Nome do Responsável / Contratante</label>
+                                    <input v-model="formLocation.Responsavel" type="text" class="form-control" placeholder="Ex: Sr. Manuel">
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Telefone da Base / Contratante</label>
+                                    <input v-model="formLocation.Telefone" type="tel" class="form-control" placeholder="Ex: 910 000 000">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BLOCO 4: Datas do Evento (Condicional) -->
+                    <div v-if="formLocation.isEvent" class="mb-4">
+                        <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">4. Duração do Evento</h6>
+                        <div class="bg-body p-4 rounded-3 border border-info border-opacity-50" style="border-style: dashed !important;">
+                            <div class="row g-3">
+                                <div class="col-6 col-md-3"><label class="form-label text-muted small fw-bold text-uppercase">Data Início</label><input v-model="formLocation.Data_Inicio" type="date" class="form-control" required></div>
+                                <div class="col-6 col-md-3"><label class="form-label text-muted small fw-bold text-uppercase">Hora Início</label><input v-model="formLocation.Hora_Inicio" type="time" class="form-control" required></div>
+                                <div class="col-6 col-md-3"><label class="form-label text-muted small fw-bold text-uppercase">Data Fim</label><input v-model="formLocation.Data_Fim" type="date" class="form-control" required></div>
+                                <div class="col-6 col-md-3"><label class="form-label text-muted small fw-bold text-uppercase">Hora Fim</label><input v-model="formLocation.Hora_Fim" type="time" class="form-control" required></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-gold fw-bold w-100 mt-2 py-3 fs-6">SALVAR BASE OPERACIONAL</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Função e Custo (Sobreposto) -->
+<div v-if="activeModal === 'role'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); z-index: 1060;">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content shadow-lg border-warning">
+            <div class="modal-header border-bottom border-secondary border-opacity-25">
+                <h6 class="modal-title fw-bold text-gold"><i data-lucide="badge-dollar-sign" style="width: 16px; margin-right: 8px;"></i> Criar Nova Função</h6>
+                <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeRoleModal"></button>
+            </div>
+            <div class="modal-body">
+                <form @submit.prevent="saveRole">
+                    <div class="mb-3">
+                        <label class="form-label text-muted small fw-bold text-uppercase">Nome da Função</label>
+                        <input v-model="formRole.Nome" type="text" class="form-control" required placeholder="Ex: Tático Sênior">
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label text-muted small fw-bold text-uppercase">Valor Base (Custo R$/€)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-body border-secondary border-opacity-25 text-muted">$</span>
+                            <input v-model="formRole.Valor_Base" type="number" step="0.01" class="form-control border-secondary border-opacity-25" placeholder="0.00">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-gold fw-bold w-100 py-2">ADICIONAR AO CATÁLOGO</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Escala (Ordem de Serviço Completa) -->
+<div v-if="activeModal === 'shift'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content shadow-lg">
+            <div class="modal-header border-bottom border-secondary border-opacity-25">
+                <h5 class="modal-title fw-bold font-heading text-gold"><i data-lucide="clipboard-list" style="width: 20px; margin-right: 8px;"></i> {{ isEditingShift ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço / Alocação' }}</h5>
+                <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+            </div>
+            
+            <div class="modal-body p-4 p-lg-5" style="max-height: 80vh; overflow-y: auto;">
+                <div v-if="errorMsg" class="alert alert-danger fw-bold small"><i data-lucide="alert-triangle" style="width: 16px;"></i> {{ errorMsg }}</div>
+                
+                <form @submit.prevent="saveShift">
+                    <!-- BLOCO 1: Localização (Estratégia para Dashboard Perfeito) -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">1. Informações de Localização</h6>
+                        <div class="bg-body p-3 rounded-3 border" style="border-color: var(--border-color) !important;">
+                            <label class="form-label fw-bold">Local Base / Evento (Requerido)</label>
+                            <select v-model="formShift.ID_LocalEvento" class="form-select border-secondary border-opacity-25" required>
+                                <option value="" disabled selected>-- Selecione um local da base de dados --</option>
+                                <option v-for="l in activeLocations" :key="l.ID" :value="l.ID">{{ l.Nome }} {{l.Tipo === 'Evento' ? '(Evento)' : '(Fixo)'}}</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- BLOCO 2: Cronograma e Financeiro -->
+                    <div class="mb-4">
+                        <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">2. Cronograma & Faturamento</h6>
+                        <div class="bg-body p-4 rounded-3 border" style="border-color: var(--border-color) !important;">
+                            <div class="row g-4">
+                                <div class="col-12 col-md-4">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Data do Evento</label>
+                                    <input v-model="formShift.Data" type="date" class="form-control" required>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Início</label>
+                                    <input v-model="formShift.Horario_Entrada" type="time" class="form-control" required>
+                                </div>
+                                <div class="col-6 col-md-4">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Término</label>
+                                    <input v-model="formShift.Horario_Saida" type="time" class="form-control" required>
+                                </div>
+                                
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Valor Negociado da Operação (R$ / €)</label>
+                                    <input v-model="formShift.Valor" type="text" class="form-control" placeholder="Ex: 1500,00">
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Data Prevista de Pagamento</label>
+                                    <input v-model="formShift.Data_Pagamento" type="date" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BLOCO 3: Dados Operacionais -->
+                    <div class="mb-5">
+                        <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">3. Instruções Táticas</h6>
+                        <div class="bg-body p-4 rounded-3 border" style="border-color: var(--border-color) !important;">
+                            <div class="row g-4">
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Uniforme / Traje</label>
+                                    <input v-model="formShift.Uniforme" type="text" class="form-control" placeholder="Ex: Fato Preto completo e gravata">
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Contato de Emergência no Local</label>
+                                    <input v-model="formShift.Contato" type="text" class="form-control" placeholder="Ex: Sr. Carlos (11) 99999-9999">
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Escopo da Operação (Instruções Livres)</label>
+                                    <textarea v-model="formShift.Escopo" class="form-control" rows="3" placeholder="Detalhes do que a equipe de segurança deve focar ou proteger..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BLOCO 4: Alocação de Agentes -->
+                    <hr style="border-color: var(--border-color); margin-bottom: 2rem;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="fw-bold text-gold text-uppercase m-0" style="letter-spacing: 1px; font-size: 0.8rem;">4. Composição da Equipa</h6>
+                        <span class="badge bg-body border text-muted">Total: {{ formShift.agentes.length }} Agente(s)</span>
+                    </div>
+
+                    <div v-for="(agente, index) in formShift.agentes" :key="index" class="d-flex flex-column flex-md-row gap-2 mb-3 bg-body p-3 rounded-3 border position-relative shadow-sm" style="border-color: var(--border-color) !important;">
+                        <div class="flex-grow-1">
+                            <label class="small text-muted mb-1 fw-bold">Agente Tático</label>
+                            <select v-model="agente.ID_Funcionario" class="form-select border-secondary border-opacity-25" required>
+                                <option value="" disabled>Selecione um agente...</option>
+                                <option v-for="g in activeGuards" :key="g.ID" :value="g.ID">{{ g.Nome }} ({{g.Telefone}})</option>
+                            </select>
+                        </div>
+                        <div class="flex-grow-1">
+                            <label class="small text-muted mb-1 fw-bold">Função no Local</label>
+                            <select v-model="agente.Funcao" @change="handleRoleChange($event, index)" class="form-select border-secondary border-opacity-25" required>
+                                <option value="" disabled>Atribuir Função...</option>
+                                <option v-for="f in funcoes" :key="f.ID" :value="f.Nome">{{ f.Nome }} {{ f.Valor_Base ? '($'+f.Valor_Base+')' : '' }}</option>
+                                <option value="NEW_ROLE" class="text-gold fw-bold">+ Criar Nova Função de Trabalho</option>
+                            </select>
+                        </div>
+                        
+                        <div class="d-flex align-items-end pb-1">
+                            <button v-if="formShift.agentes.length > 1 && !isEditingShift" type="button" @click="removeAgentRow(index)" class="btn btn-outline-danger w-100 px-3" title="Remover Agente">
+                                <i data-lucide="trash-2" style="width: 18px;"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button v-if="!isEditingShift" type="button" @click="addAgentRow" class="btn btn-outline-secondary w-100 mb-5 py-3 fw-bold bg-body" style="border-style: dashed; border-color: var(--border-color) !important;">
+                        <i data-lucide="user-plus" style="width: 18px; margin-right: 8px;"></i> ADICIONAR MAIS UM AGENTE A ESTA ORDEM
+                    </button>
+
+                    <div class="sticky-bottom bg-surface pt-3 border-top" style="border-color: var(--border-color) !important; margin: 0 -2rem -2rem -2rem; padding: 1.5rem 2rem;">
+                        <button type="submit" class="btn btn-gold fw-bold w-100 py-3 shadow-sm fs-5 text-uppercase" style="letter-spacing: 1px;">
+                            <i data-lucide="check-circle" style="width: 20px; margin-right: 8px;"></i> Confirmar Operação
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
