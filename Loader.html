@@ -1,0 +1,23 @@
+<div class="d-flex flex-column align-items-center justify-content-center h-100 w-100" style="background-color: var(--bg-body); z-index: 9999;">
+    <div v-if="isDarkMode" class="position-absolute top-50 start-50 translate-middle rounded-circle bg-warning opacity-10 blur-xl" style="width: 300px; height: 300px; filter: blur(80px); pointer-events: none;"></div>
+    
+    <div class="loader-container">
+        <div class="loading-ring"></div>
+        <div class="loading-ring inner"></div>
+        <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shield-icon-loader text-gold">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+            <path d="m9 12 2 2 4-4"/>
+        </svg>
+    </div>
+    
+    <h2 class="font-heading fw-bold text-main mb-2" style="letter-spacing: 1px;">RINCON <span class="text-gold">OPS</span></h2>
+    
+    <div class="progress-container shadow-sm">
+        <div class="progress-bar-fill" :style="{ width: loadingProgress + '%' }"></div>
+    </div>
+    
+    <div class="d-flex justify-content-between w-100 mt-2" style="max-width: 300px;">
+        <span class="text-gold small fw-bold text-uppercase" style="letter-spacing: 2px; font-size: 0.70rem;">{{ loadingMessage }}</span>
+        <span class="text-muted small fw-bold font-monospace">{{ Math.floor(loadingProgress) }}%</span>
+    </div>
+</div>
