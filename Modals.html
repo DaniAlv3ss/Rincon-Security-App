@@ -23,7 +23,7 @@
     </div>
 </div>
 
-<!-- 🔥 NOVO: Modal Local Estruturado -->
+<!-- Modal Local -->
 <div v-if="activeModal === 'location'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content shadow-lg">
@@ -69,7 +69,7 @@
                         </div>
                     </div>
 
-                    <!-- BLOCO 3: Contato (Opcional) -->
+                    <!-- BLOCO 3: Contato -->
                     <div class="mb-4">
                         <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">3. Contato no Local (Opcional)</h6>
                         <div class="bg-body p-4 rounded-3 border" style="border-color: var(--border-color) !important;">
@@ -86,7 +86,7 @@
                         </div>
                     </div>
 
-                    <!-- BLOCO 4: Datas do Evento (Condicional) -->
+                    <!-- BLOCO 4: Datas do Evento -->
                     <div v-if="formLocation.isEvent" class="mb-4">
                         <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">4. Duração do Evento</h6>
                         <div class="bg-body p-4 rounded-3 border border-info border-opacity-50" style="border-style: dashed !important;">
@@ -147,7 +147,7 @@
                 <div v-if="errorMsg" class="alert alert-danger fw-bold small"><i data-lucide="alert-triangle" style="width: 16px;"></i> {{ errorMsg }}</div>
                 
                 <form @submit.prevent="saveShift">
-                    <!-- BLOCO 1: Localização (Estratégia para Dashboard Perfeito) -->
+                    <!-- BLOCO 1: Localização -->
                     <div class="mb-4">
                         <h6 class="fw-bold mb-3 text-muted text-uppercase" style="letter-spacing: 1px; font-size: 0.8rem;">1. Informações de Localização</h6>
                         <div class="bg-body p-3 rounded-3 border" style="border-color: var(--border-color) !important;">
@@ -165,8 +165,9 @@
                         <div class="bg-body p-4 rounded-3 border" style="border-color: var(--border-color) !important;">
                             <div class="row g-4">
                                 <div class="col-12 col-md-4">
-                                    <label class="form-label text-muted small fw-bold text-uppercase">Data do Evento</label>
-                                    <input v-model="formShift.Data" type="date" class="form-control" required>
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Data do Turno</label>
+                                    <!-- 🔥 FIX: V-model atualizado para Data_Turno -->
+                                    <input v-model="formShift.Data_Turno" type="date" class="form-control" required>
                                 </div>
                                 <div class="col-6 col-md-4">
                                     <label class="form-label text-muted small fw-bold text-uppercase">Início</label>
