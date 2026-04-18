@@ -1,8 +1,7 @@
 <!-- Mobile Header -->
 <div class="d-lg-none fixed-top bg-body border-bottom border-secondary border-opacity-25 p-3 d-flex justify-content-between align-items-center" style="z-index: 1040;">
     <div class="d-flex align-items-center gap-2">
-        <!-- Logo Rincon no Mobile (Apenas a imagem limpa com fallback) -->
-        <img src="https://lh3.googleusercontent.com/d/1B0rerjd92_orghMcTAZAxb08yEAu9tVf" onerror="this.src='https://ui-avatars.com/api/?name=Rincon+Ops&background=09090b&color=f59e0b&bold=true'" alt="Logo Rincon" style="width: 36px; height: 36px; object-fit: contain;">
+        <i data-lucide="shield-check" class="text-gold" style="width: 24px;"></i>
         <span class="font-heading fw-bold text-main">RINCON <span class="text-gold">OPS</span></span>
     </div>
     <div class="d-flex gap-2">
@@ -19,8 +18,9 @@
 <aside :class="['sidebar', { 'show': mobileMenuOpen }]">
     <div class="p-4 d-flex align-items-center justify-content-center border-bottom" style="height: 80px; border-color: var(--border-color) !important;">
         <div class="d-flex align-items-center gap-3">
-            <!-- Logo Rincon no Desktop (Apenas a imagem limpa com fallback) -->
-            <img src="https://lh3.googleusercontent.com/d/1B0rerjd92_orghMcTAZAxb08yEAu9tVf" onerror="this.src='https://ui-avatars.com/api/?name=Rincon+Ops&background=09090b&color=f59e0b&bold=true'" alt="Logo Rincon" style="width: 45px; height: 45px; object-fit: contain;">
+            <div class="bg-body p-2 rounded border" style="border-color: var(--border-color) !important;">
+                <i data-lucide="shield-check" class="text-gold" style="width: 28px; height: 28px;"></i>
+            </div>
             <div class="d-none d-lg-block">
                 <h5 class="m-0 font-heading fw-bold" style="color: var(--text-main);">RINCON</h5>
                 <small class="text-gold fw-bold" style="letter-spacing: 2px; font-size: 0.7rem;">COMMAND CENTER</small>
