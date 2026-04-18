@@ -1,52 +1,84 @@
 /**
  * ============================================================================
- * BACKEND: SAFEGUARD ELITE (Google Apps Script)
- * Arquitetura Relacional, Motor Anti-Conflito & Lotes de Agentes
+ * BACKEND: RINCON OPS (Google Apps Script)
+ * Arquitetura Modular & Motor Anti-Conflito O(1) + Sheets API V4
  * ============================================================================
  */
 
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
 function doGet(e) {
-  return HtmlService.createHtmlOutputFromFile('Index')
-    .setTitle('SafeGuard Elite - Rincon Edition')
+  return HtmlService.createTemplateFromFile('Index')
+    .evaluate()
+    .setTitle('Rincon Ops - Command Center')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// ----------------------------------------------------------------------------
-// 1. AUTO-SETUP & CACHE GLOBAL (Otimização Extrema)
-// ----------------------------------------------------------------------------
-let _dbCache = null; // Cache em memória para a execução atual
+let _dbCacheId = null;
 
-function getDB() {
-  if (_dbCache) return _dbCache; // Retorna imediatamente se já abriu
-  
+function buildDatabaseStructure() {
   const props = PropertiesService.getScriptProperties();
-  let dbId = props.getProperty('SG_ELITE_DB');
-  
+  let dbId = props.getProperty('RINCON_OPS_DB');
+  let ss = null;
+  let isNewBuild = false;
+
+  // 1. Tenta aceder à base de dados. Se falhar ou estiver corrompida, faz um HARD RESET.
   if (dbId) {
     try { 
-      _dbCache = SpreadsheetApp.openById(dbId); 
-    } catch(e) { 
-      dbId = null; // Se o ID for inválido ou a planilha foi apagada
+      ss = SpreadsheetApp.openById(dbId); 
+      if (!ss.getSheetByName("LOCAIS_EVENTOS")) {
+        ss = null; 
+        props.deleteProperty('RINCON_OPS_DB'); // Limpa o ID fantasma
+      }
+    } 
+    catch(e) { 
+      ss = null; 
+      props.deleteProperty('RINCON_OPS_DB'); // Limpa o ID fantasma se estiver na lixeira
     }
   }
   
-  // Se não tem banco, cria um novo
-  if (!dbId) {
-    _dbCache = SpreadsheetApp.create("DB_SafeGuard_Elite");
-    props.setProperty('SG_ELITE_DB', _dbCache.getId());
+  // 2. Constrói do zero
+  if (!ss) {
+    isNewBuild = true;
+    ss = SpreadsheetApp.create("DB_Rincon_Ops");
+    dbId = ss.getId();
+    props.setProperty('RINCON_OPS_DB', dbId);
     
-    if (_dbCache.getSheets()[0].getName() === "Página1") {
-      _dbCache.deleteSheet(_dbCache.getSheets()[0]);
+    // Tabela LOCAIS_EVENTOS expandida para suportar BI e Mapas
+    setupSheet(ss, "LOCAIS_EVENTOS", [
+      "ID", "Nome", "Tipo", "Endereço", "Cidade", "Responsável", 
+      "Telefone", "Maps_Link", "Data_Inicio", "Hora_Inicio", 
+      "Data_Fim", "Hora_Fim", "Status"
+    ]);
+    
+    setupSheet(ss, "FUNCIONARIOS", ["ID", "Nome", "Telefone", "Status"]);
+    setupSheet(ss, "FUNCOES", ["ID", "Nome", "Valor_Base"]);
+    
+    setupSheet(ss, "ESCALAS", [
+      "ID_Escala", "ID_Funcionario", "ID_LocalEvento", "Data", 
+      "Horario_Entrada", "Horario_Saida", "Status", "Funcao", 
+      "Valor", "Data_Pagamento", "Uniforme", "Escopo", "Contato"
+    ]);
+    
+    const page1 = ss.getSheetByName("Página1");
+    if (page1 && ss.getSheets().length > 1) ss.deleteSheet(page1);
+
+    SpreadsheetApp.flush(); 
+    Utilities.sleep(2000); 
+  } else {
+    // Atualiza colunas caso o banco antigo tenha sobrevivido
+    let funcSheet = ss.getSheetByName("FUNCOES");
+    if(funcSheet && funcSheet.getLastColumn() < 3) {
+      funcSheet.getRange(1, 3).setValue("Valor_Base").setFontWeight("bold").setBackground("#0f172a").setFontColor("#f59e0b");
+      SpreadsheetApp.flush();
     }
-    
-    setupSheet(_dbCache, "LOCAIS_EVENTOS", ["ID", "Nome", "Tipo", "Data_Inicio", "Hora_Inicio", "Data_Fim", "Hora_Fim", "Status"]);
-    setupSheet(_dbCache, "FUNCIONARIOS", ["ID", "Nome", "Telefone", "Status"]);
-    setupSheet(_dbCache, "FUNCOES", ["ID", "Nome"]);
-    setupSheet(_dbCache, "ESCALAS", ["ID_Escala", "ID_Funcionario", "ID_LocalEvento", "Data", "Horario_Entrada", "Horario_Saida", "Status", "Funcao"]);
   }
   
-  return _dbCache;
+  _dbCacheId = dbId;
+  return dbId;
 }
 
 function setupSheet(ss, sheetName, headers) {
@@ -59,17 +91,19 @@ function setupSheet(ss, sheetName, headers) {
   }
 }
 
-// Otimizado para usar a conexão em Cache
+function getDBId() {
+  if (_dbCacheId) return _dbCacheId;
+  return buildDatabaseStructure(); 
+}
+
 function getSheet(name) { 
-  return getDB().getSheetByName(name); 
+  return SpreadsheetApp.openById(getDBId()).getSheetByName(name); 
 }
 
 function sheetToJSON(data) {
   if (!data || data.length <= 1) return [];
   const headers = data[0];
-  return data.slice(1)
-    .map(row => Object.fromEntries(headers.map((h, i) => [h, row[i]])))
-    .filter(r => r[headers[0]] !== "");
+  return data.slice(1).map(row => Object.fromEntries(headers.map((h, i) => [h, row[i]]))).filter(r => r[headers[0]] !== "");
 }
 
 function parseDateTime(dateStr, timeStr) {
@@ -79,87 +113,54 @@ function parseDateTime(dateStr, timeStr) {
   return new Date(y, m - 1, d, hr, min);
 }
 
-// ----------------------------------------------------------------------------
-// 2. MOTORES DE NEGÓCIO E GET DATA
-// ----------------------------------------------------------------------------
-
 function getDashboardData() {
   try {
     const cache = CacheService.getScriptCache();
-    const cacheKey = 'dashboard_full_data';
-
+    // 🔥 UPDATE: Chave de Cache alterada para forçar uma nova leitura e evitar dados fantasmas
+    const cacheKey = 'dashboard_data_rincon_v3'; 
     const cached = cache.get(cacheKey);
-    if (cached) {
-      return JSON.parse(cached);
-    }
-
-    const locaisRaw = sheetToJSON(getSheet("LOCAIS_EVENTOS").getDataRange().getDisplayValues());
-    const funcionarios = sheetToJSON(getSheet("FUNCIONARIOS").getDataRange().getDisplayValues());
-    const escalasRaw = sheetToJSON(getSheet("ESCALAS").getDataRange().getDisplayValues());
-    const funcoesRaw = sheetToJSON(getSheet("FUNCOES").getDataRange().getDisplayValues());
     
-    // Funções padrão caso o BD seja novo
+    if (cached) return JSON.parse(cached);
+
+    const ssId = getDBId();
+    
+    const response = Sheets.Spreadsheets.Values.batchGet(ssId, {
+      ranges: ['LOCAIS_EVENTOS!A:M', 'FUNCIONARIOS!A:D', 'ESCALAS!A:M', 'FUNCOES!A:C']
+    });
+
+    const locaisRaw = sheetToJSON(response.valueRanges[0].values || [["ID"]]);
+    const funcionarios = sheetToJSON(response.valueRanges[1].values || [["ID"]]);
+    const escalasRaw = sheetToJSON(response.valueRanges[2].values || [["ID_Escala"]]);
+    const funcoesRaw = sheetToJSON(response.valueRanges[3].values || [["ID"]]);
+    
     let funcoes = funcoesRaw.length > 0 ? funcoesRaw : [
-      {ID: '1', Nome: 'Vigilante'}, {ID: '2', Nome: 'Segurança Tático'}, {ID: '3', Nome: 'Chefe de Equipa'}
+      {ID: '1', Nome: 'Vigilante', Valor_Base: '50'}, 
+      {ID: '2', Nome: 'Segurança Tático', Valor_Base: '80'}, 
+      {ID: '3', Nome: 'Chefe de Equipa', Valor_Base: '100'}
     ];
 
     const now = new Date();
-    
     const locais = locaisRaw.map(local => {
       let expired = false;
       if (local.Status !== 'Cancelado' && local.Tipo === 'Evento' && local.Data_Fim && local.Hora_Fim) {
         const endDate = parseDateTime(local.Data_Fim, local.Hora_Fim);
-        if (endDate && endDate < now) {
-          expired = true;
-          local.Status = 'Expirado';
-        }
+        if (endDate && endDate < now) { expired = true; local.Status = 'Expirado'; }
       }
       return { ...local, expired };
     });
 
     const escalas = escalasRaw.map(e => ({...e, Status: e.Status || 'Confirmado', Funcao: e.Funcao || 'Vigilante'}));
-
     const result = { success: true, data: { locais, funcionarios, escalas, funcoes } };
-    // Cache por 5 minutos (300 segundos)
-    try { cache.put(cacheKey, JSON.stringify(result), 300); } catch(cacheErr) { console.error('Cache write failed: ' + cacheErr.message); }
+    
+    try { cache.put(cacheKey, JSON.stringify(result), 300); } catch(e) {}
     return result;
-  } catch (e) { return { success: false, error: e.message }; }
+  } catch (e) { return { success: false, error: "Erro na API: " + e.message }; }
 }
 
-// Validação de conflito baseada em Memória O(N) sem bater no App Script Quota
-function validateConflictMemory(idFuncionario, dateStr, startStr, endStr, ignoreId, escalasCacheadas) {
-  const newStart = parseDateTime(dateStr, startStr);
-  let newEnd = parseDateTime(dateStr, endStr);
-  if (!newStart || !newEnd) throw new Error("Data ou horário inválido.");
-  if (newEnd <= newStart) newEnd.setDate(newEnd.getDate() + 1);
-
-  for (let esc of escalasCacheadas) {
-    if (esc.ID_Funcionario === idFuncionario && esc.Status !== 'Cancelado') {
-      if (ignoreId && esc.ID_Escala === ignoreId) continue; 
-
-      let escStart = parseDateTime(esc.Data, esc.Horario_Entrada);
-      let escEnd = parseDateTime(esc.Data, esc.Horario_Saida);
-      if (escEnd <= escStart) escEnd.setDate(escEnd.getDate() + 1);
-
-      if (newStart < escEnd && newEnd > escStart) {
-        throw new Error(`O agente selecionado já possui uma escala sobreposta no dia ${dateStr}.`);
-      }
-    }
-  }
-}
-
-// Limpa o cache do dashboard após operações de escrita
 function invalidateDashboardCache() {
-  try {
-    CacheService.getScriptCache().remove('dashboard_full_data');
-  } catch(e) { console.error('Cache invalidation failed: ' + e.message); }
+  try { CacheService.getScriptCache().remove('dashboard_data_rincon_v3'); } catch(e) {}
 }
 
-/**
- * Cria um índice de escalas indexado por ID_Funcionario para busca O(1).
- * @param {Object[]} escalas - Array de objetos de escala da planilha ESCALAS.
- * @returns {Object} Mapa de ID_Funcionario -> escalas[] para acesso direto.
- */
 function buildEscalasIndex(escalas) {
   const index = {};
   escalas.forEach(esc => {
@@ -169,25 +170,13 @@ function buildEscalasIndex(escalas) {
   return index;
 }
 
-/**
- * Valida conflitos de horário para um agente usando índice O(1).
- * @param {string} idFuncionario - ID do funcionário a verificar.
- * @param {string} dateStr - Data no formato YYYY-MM-DD.
- * @param {string} startStr - Horário de entrada no formato HH:MM.
- * @param {string} endStr - Horário de saída no formato HH:MM.
- * @param {string|null} ignoreId - ID_Escala a ignorar (para edição).
- * @param {Object} escalasIndex - Índice criado por buildEscalasIndex().
- * @throws {Error} Se houver sobreposição de horário para o agente.
- */
 function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endStr, ignoreId, escalasIndex) {
   const newStart = parseDateTime(dateStr, startStr);
   let newEnd = parseDateTime(dateStr, endStr);
   if (!newStart || !newEnd) throw new Error("Data ou horário inválido.");
   if (newEnd <= newStart) newEnd.setDate(newEnd.getDate() + 1);
 
-  // O(1): acesso direto ao invés de O(N) loop sobre todas as escalas
   const funcionarioEscalas = escalasIndex[idFuncionario] || [];
-
   for (let esc of funcionarioEscalas) {
     if (esc.Status === 'Cancelado') continue;
     if (ignoreId && esc.ID_Escala === ignoreId) continue;
@@ -202,10 +191,6 @@ function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endSt
   }
 }
 
-// ----------------------------------------------------------------------------
-// 3. API CRUD (CREATE, UPDATE, DELETE)
-// ----------------------------------------------------------------------------
-
 function updateOrAddRow(sheetName, idColIndex, id, newData) {
   const sheet = getSheet(sheetName);
   const data = sheet.getDataRange().getValues();
@@ -213,29 +198,23 @@ function updateOrAddRow(sheetName, idColIndex, id, newData) {
   for (let i = 1; i < data.length; i++) {
     if (data[i][idColIndex] === id) { rowIndex = i + 1; break; }
   }
-  if (rowIndex > -1) {
-    sheet.getRange(rowIndex, 1, 1, newData.length).setValues([newData]); 
-  } else {
-    sheet.appendRow(newData); 
-  }
+  if (rowIndex > -1) sheet.getRange(rowIndex, 1, 1, newData.length).setValues([newData]); 
+  else sheet.appendRow(newData); 
 }
 
-function saveFuncao(nome) {
+function saveFuncao(payload) {
   try {
-    const sheet = getSheet("FUNCOES");
     const id = Utilities.getUuid();
-    sheet.appendRow([id, nome]);
+    getSheet("FUNCOES").appendRow([id, payload.Nome, payload.Valor_Base || '0']);
     invalidateDashboardCache();
-    return { success: true, data: { ID: id, Nome: nome } };
+    return { success: true, data: { ID: id, Nome: payload.Nome, Valor_Base: payload.Valor_Base } };
   } catch (e) { return { success: false, error: e.message }; }
 }
 
 function saveFuncionario(payload) {
   try {
-    const isNew = !payload.ID;
-    const id = isNew ? Utilities.getUuid() : payload.ID;
-    const row = [id, payload.Nome, payload.Telefone, payload.Status || 'Ativo'];
-    updateOrAddRow("FUNCIONARIOS", 0, id, row);
+    const id = payload.ID || Utilities.getUuid();
+    updateOrAddRow("FUNCIONARIOS", 0, id, [id, payload.Nome, payload.Telefone, payload.Status || 'Ativo']);
     invalidateDashboardCache();
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
@@ -243,41 +222,72 @@ function saveFuncionario(payload) {
 
 function saveLocal(payload) {
   try {
-    const isNew = !payload.ID;
-    const id = isNew ? Utilities.getUuid() : payload.ID;
-    const row = [id, payload.Nome, payload.Tipo, payload.Data_Inicio||'', payload.Hora_Inicio||'', payload.Data_Fim||'', payload.Hora_Fim||'', payload.Status || 'Ativo'];
-    updateOrAddRow("LOCAIS_EVENTOS", 0, id, row);
+    const id = payload.ID || Utilities.getUuid();
+    const rowData = [
+      id, 
+      payload.Nome, 
+      payload.Tipo, 
+      payload.Endereco || '', 
+      payload.Cidade || '', 
+      payload.Responsavel || '', 
+      payload.Telefone || '', 
+      payload.Maps_Link || '', 
+      payload.Data_Inicio || '', 
+      payload.Hora_Inicio || '', 
+      payload.Data_Fim || '', 
+      payload.Hora_Fim || '', 
+      payload.Status || 'Ativo'
+    ];
+    updateOrAddRow("LOCAIS_EVENTOS", 0, id, rowData);
     invalidateDashboardCache();
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 }
 
-// Suporta Lote de Escalas (Lê apenas 1 vez, processa na velocidade da luz)
 function saveEscalaBatch(payloads) {
   try {
-    const sheet = getSheet("ESCALAS");
-    
-    // Ler todo o banco atual APENAS UMA VEZ
-    const escalasAtuais = sheetToJSON(sheet.getDataRange().getDisplayValues());
-    
-    // OTIMIZAÇÃO: criar índice O(1) uma única vez antes de todas as validações
+    const ssId = getDBId();
+    const response = Sheets.Spreadsheets.Values.get(ssId, 'ESCALAS!A:M');
+    const escalasAtuais = sheetToJSON(response.values || [["ID_Escala"]]);
     const escalasIndex = buildEscalasIndex(escalasAtuais);
 
-    // Validar conflitos na memória para TODOS os agentes antes de salvar qualquer um
     for (let payload of payloads) {
       validateConflictMemoryOptimized(payload.ID_Funcionario, payload.Data, payload.Horario_Entrada, payload.Horario_Saida, payload.ID_Escala, escalasIndex);
     }
 
-    // Salvar todos (mantendo updateOrAddRow para compatibilidade)
+    let newRows = [];
+    
     for (let payload of payloads) {
-      const isNew = !payload.ID_Escala;
-      const id = isNew ? Utilities.getUuid() : payload.ID_Escala;
-      const row = [
-        id, payload.ID_Funcionario, payload.ID_LocalEvento, 
-        payload.Data, payload.Horario_Entrada, payload.Horario_Saida, 
-        payload.Status || 'Confirmado', payload.Funcao || 'Vigilante'
+      let rowData = [
+        payload.ID_Escala || Utilities.getUuid(), 
+        payload.ID_Funcionario, 
+        payload.ID_LocalEvento, 
+        payload.Data, 
+        payload.Horario_Entrada, 
+        payload.Horario_Saida, 
+        payload.Status || 'Confirmado', 
+        payload.Funcao || 'Vigilante',
+        payload.Valor || '',
+        payload.Data_Pagamento || '',
+        payload.Uniforme || '',
+        payload.Escopo || '',
+        payload.Contato || ''
       ];
-      updateOrAddRow("ESCALAS", 0, id, row);
+
+      if (!payload.ID_Escala) {
+        newRows.push(rowData);
+      } else {
+        updateOrAddRow("ESCALAS", 0, payload.ID_Escala, rowData);
+      }
+    }
+
+    if (newRows.length > 0) {
+      Sheets.Spreadsheets.Values.append(
+        { values: newRows }, 
+        ssId, 
+        'ESCALAS!A:M', 
+        { valueInputOption: 'USER_ENTERED' }
+      );
     }
 
     invalidateDashboardCache();
