@@ -17,6 +17,11 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
+function FORCAR_CRIACAO_DO_BANCO() {
+  buildDatabaseStructure();
+  console.log("SUCESSO: Banco de Dados 'DB_Rincon_Ops' gerado e atualizado no seu Google Drive.");
+}
+
 let _dbCacheId = null;
 
 function buildDatabaseStructure() {
@@ -25,29 +30,26 @@ function buildDatabaseStructure() {
   let ss = null;
   let isNewBuild = false;
 
-  // 1. Tenta aceder à base de dados. Se falhar ou estiver corrompida, faz um HARD RESET.
   if (dbId) {
     try { 
       ss = SpreadsheetApp.openById(dbId); 
       if (!ss.getSheetByName("LOCAIS_EVENTOS")) {
         ss = null; 
-        props.deleteProperty('RINCON_OPS_DB'); // Limpa o ID fantasma
+        props.deleteProperty('RINCON_OPS_DB');
       }
     } 
     catch(e) { 
       ss = null; 
-      props.deleteProperty('RINCON_OPS_DB'); // Limpa o ID fantasma se estiver na lixeira
+      props.deleteProperty('RINCON_OPS_DB');
     }
   }
   
-  // 2. Constrói do zero
   if (!ss) {
     isNewBuild = true;
     ss = SpreadsheetApp.create("DB_Rincon_Ops");
     dbId = ss.getId();
     props.setProperty('RINCON_OPS_DB', dbId);
     
-    // Tabela LOCAIS_EVENTOS expandida para suportar BI e Mapas
     setupSheet(ss, "LOCAIS_EVENTOS", [
       "ID", "Nome", "Tipo", "Endereço", "Cidade", "Responsável", 
       "Telefone", "Maps_Link", "Data_Inicio", "Hora_Inicio", 
@@ -57,8 +59,9 @@ function buildDatabaseStructure() {
     setupSheet(ss, "FUNCIONARIOS", ["ID", "Nome", "Telefone", "Status"]);
     setupSheet(ss, "FUNCOES", ["ID", "Nome", "Valor_Base"]);
     
+    // 🔥 FIX: Coluna renomeada fisicamente para 'Data_Turno'
     setupSheet(ss, "ESCALAS", [
-      "ID_Escala", "ID_Funcionario", "ID_LocalEvento", "Data", 
+      "ID_Escala", "ID_Funcionario", "ID_LocalEvento", "Data_Turno", 
       "Horario_Entrada", "Horario_Saida", "Status", "Funcao", 
       "Valor", "Data_Pagamento", "Uniforme", "Escopo", "Contato"
     ]);
@@ -69,7 +72,6 @@ function buildDatabaseStructure() {
     SpreadsheetApp.flush(); 
     Utilities.sleep(2000); 
   } else {
-    // Atualiza colunas caso o banco antigo tenha sobrevivido
     let funcSheet = ss.getSheetByName("FUNCOES");
     if(funcSheet && funcSheet.getLastColumn() < 3) {
       funcSheet.getRange(1, 3).setValue("Valor_Base").setFontWeight("bold").setBackground("#0f172a").setFontColor("#f59e0b");
@@ -116,8 +118,7 @@ function parseDateTime(dateStr, timeStr) {
 function getDashboardData() {
   try {
     const cache = CacheService.getScriptCache();
-    // 🔥 UPDATE: Chave de Cache alterada para forçar uma nova leitura e evitar dados fantasmas
-    const cacheKey = 'dashboard_data_rincon_v3'; 
+    const cacheKey = 'dashboard_data_rincon_v5'; 
     const cached = cache.get(cacheKey);
     
     if (cached) return JSON.parse(cached);
@@ -158,7 +159,7 @@ function getDashboardData() {
 }
 
 function invalidateDashboardCache() {
-  try { CacheService.getScriptCache().remove('dashboard_data_rincon_v3'); } catch(e) {}
+  try { CacheService.getScriptCache().remove('dashboard_data_rincon_v5'); } catch(e) {}
 }
 
 function buildEscalasIndex(escalas) {
@@ -170,6 +171,7 @@ function buildEscalasIndex(escalas) {
   return index;
 }
 
+// 🔥 FIX: A validação agora mapeia 'Data_Turno'
 function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endStr, ignoreId, escalasIndex) {
   const newStart = parseDateTime(dateStr, startStr);
   let newEnd = parseDateTime(dateStr, endStr);
@@ -181,8 +183,8 @@ function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endSt
     if (esc.Status === 'Cancelado') continue;
     if (ignoreId && esc.ID_Escala === ignoreId) continue;
 
-    let escStart = parseDateTime(esc.Data, esc.Horario_Entrada);
-    let escEnd = parseDateTime(esc.Data, esc.Horario_Saida);
+    let escStart = parseDateTime(esc.Data_Turno, esc.Horario_Entrada);
+    let escEnd = parseDateTime(esc.Data_Turno, esc.Horario_Saida);
     if (escEnd <= escStart) escEnd.setDate(escEnd.getDate() + 1);
 
     if (newStart < escEnd && newEnd > escStart) {
@@ -252,7 +254,7 @@ function saveEscalaBatch(payloads) {
     const escalasIndex = buildEscalasIndex(escalasAtuais);
 
     for (let payload of payloads) {
-      validateConflictMemoryOptimized(payload.ID_Funcionario, payload.Data, payload.Horario_Entrada, payload.Horario_Saida, payload.ID_Escala, escalasIndex);
+      validateConflictMemoryOptimized(payload.ID_Funcionario, payload.Data_Turno, payload.Horario_Entrada, payload.Horario_Saida, payload.ID_Escala, escalasIndex);
     }
 
     let newRows = [];
@@ -262,7 +264,7 @@ function saveEscalaBatch(payloads) {
         payload.ID_Escala || Utilities.getUuid(), 
         payload.ID_Funcionario, 
         payload.ID_LocalEvento, 
-        payload.Data, 
+        payload.Data_Turno, 
         payload.Horario_Entrada, 
         payload.Horario_Saida, 
         payload.Status || 'Confirmado', 
