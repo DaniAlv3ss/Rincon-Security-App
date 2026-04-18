@@ -10,37 +10,26 @@
         </div>
     </div>
 
-    <!-- Layout em Lista Horizontal -->
-    <div class="row g-2">
+    <div class="row g-4">
         <transition-group name="list">
-            <div v-for="g in filteredGuards" :key="g.ID" class="col-12">
-                <div class="glass-panel p-3 rounded-3 card-custom d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 position-relative">
-                    
-                    <!-- Bloco Esquerdo: Avatar + Nome + Telefone -->
-                    <div class="d-flex align-items-center gap-3">
-                        <div class="avatar-initials shadow-sm flex-shrink-0" style="width: 45px; height: 45px; font-size: 1.1rem;">{{ getInitials(g.Nome) }}</div>
-                        <div>
-                            <h6 class="fw-bold m-0 fs-5" style="color: var(--text-main);">{{ g.Nome }}</h6>
-                            <div class="small fw-semibold mt-1 d-flex align-items-center gap-1 text-muted"><i data-lucide="phone" style="width: 12px;"></i> {{ g.Telefone }}</div>
-                        </div>
+            <div v-for="g in filteredGuards" :key="g.ID" class="col-12 col-md-4 col-xl-3">
+                <div class="glass-panel p-4 rounded-3 h-100 text-center position-relative card-custom d-flex flex-column align-items-center">
+                    <div class="dropdown position-absolute top-0 end-0 m-2">
+                        <button class="btn btn-sm btn-link text-muted p-0 border-0 dropdown-toggle" data-bs-toggle="dropdown" type="button"><i data-lucide="more-vertical" style="width: 16px; pointer-events: none;"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="background-color: var(--bg-surface); border-color: var(--border-color);">
+                            <li><a class="dropdown-item" href="#" @click.prevent="editGuard(g)"><i data-lucide="pencil" style="width: 14px; margin-right:8px;"></i> Editar</a></li>
+                            <li v-if="g.Status === 'Ativo'"><a class="dropdown-item text-warning" href="#" @click.prevent="changeGuardStatus(g.ID, 'Inativo')"><i data-lucide="user-minus" style="width: 14px; margin-right:8px;"></i> Desativar</a></li>
+                            <li v-if="g.Status === 'Inativo'"><a class="dropdown-item text-success" href="#" @click.prevent="changeGuardStatus(g.ID, 'Ativo')"><i data-lucide="user-check" style="width: 14px; margin-right:8px;"></i> Reativar</a></li>
+                            <li><hr class="dropdown-divider" style="border-color: var(--border-color);"></li>
+                            <li><a class="dropdown-item text-danger" href="#" @click.prevent="deleteRecord('FUNCIONARIOS', g.ID)"><i data-lucide="trash-2" style="width: 14px; margin-right:8px;"></i> Eliminar</a></li>
+                        </ul>
                     </div>
-
-                    <!-- Bloco Direito: Status + Dropdown -->
-                    <div class="d-flex align-items-center justify-content-between justify-content-md-end gap-4 w-100 w-md-auto mt-2 mt-md-0 pt-2 pt-md-0 border-top border-md-0" style="border-color: var(--border-color) !important;">
-                        <span :class="['badge rounded-pill px-3 py-1', g.Status === 'Ativo' ? 'bg-success bg-opacity-25 text-success border border-success' : 'bg-danger bg-opacity-25 text-danger border border-danger']">{{ g.Status }}</span>
-                        
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-link text-muted p-2 border-0 dropdown-toggle" data-bs-toggle="dropdown" type="button"><i data-lucide="more-vertical" style="width: 18px; pointer-events: none;"></i></button>
-                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="background-color: var(--bg-surface); border-color: var(--border-color);">
-                                <li><a class="dropdown-item" href="#" @click.prevent="editGuard(g)"><i data-lucide="pencil" style="width: 14px; margin-right:8px;"></i> Editar</a></li>
-                                <li v-if="g.Status === 'Ativo'"><a class="dropdown-item text-warning" href="#" @click.prevent="changeGuardStatus(g.ID, 'Inativo')"><i data-lucide="user-minus" style="width: 14px; margin-right:8px;"></i> Desativar</a></li>
-                                <li v-if="g.Status === 'Inativo'"><a class="dropdown-item text-success" href="#" @click.prevent="changeGuardStatus(g.ID, 'Ativo')"><i data-lucide="user-check" style="width: 14px; margin-right:8px;"></i> Reativar</a></li>
-                                <li><hr class="dropdown-divider" style="border-color: var(--border-color);"></li>
-                                <li><a class="dropdown-item text-danger" href="#" @click.prevent="deleteRecord('FUNCIONARIOS', g.ID)"><i data-lucide="trash-2" style="width: 14px; margin-right:8px;"></i> Eliminar</a></li>
-                            </ul>
-                        </div>
+                    <div class="avatar-initials mb-3 shadow-sm" style="width: 70px; height: 70px; font-size: 1.6rem;">{{ getInitials(g.Nome) }}</div>
+                    <h5 class="fw-bold mb-1" style="color: var(--text-main);">{{ g.Nome }}</h5>
+                    <div class="small fw-semibold mb-4 d-flex align-items-center justify-content-center gap-2 bg-body px-3 py-1 rounded-pill mt-2" style="color: var(--text-muted); border: 1px solid var(--border-color);"><i data-lucide="phone" style="width: 12px;"></i> {{ g.Telefone }}</div>
+                    <div class="mt-auto">
+                        <span :class="['badge rounded-pill px-3 py-2', g.Status === 'Ativo' ? 'bg-success bg-opacity-25 text-success border border-success' : 'bg-danger bg-opacity-25 text-danger border border-danger']">{{ g.Status }}</span>
                     </div>
-                    
                 </div>
             </div>
         </transition-group>
