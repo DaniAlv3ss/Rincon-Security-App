@@ -5,10 +5,12 @@
  * ============================================================================
  */
 
+// 1. INJEÇÃO DE DEPENDÊNCIAS (MODULARIZAÇÃO)
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
+// 2. ENTRY POINT (RENDERIZAÇÃO DO APP)
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
@@ -17,66 +19,54 @@ function doGet(e) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-function FORCAR_CRIACAO_DO_BANCO() {
-  buildDatabaseStructure();
-  console.log("SUCESSO: Banco de Dados 'DB_Rincon_Ops' gerado e atualizado no seu Google Drive.");
-}
-
+// ----------------------------------------------------------------------------
+// 3. CACHE E BANCO DE DADOS (GATEKEEPER DE ESTRUTURA)
+// ----------------------------------------------------------------------------
 let _dbCacheId = null;
 
+// 🔥 O GATEKEEPER: Garante que a estrutura física existe antes da API agir
 function buildDatabaseStructure() {
   const props = PropertiesService.getScriptProperties();
   let dbId = props.getProperty('RINCON_OPS_DB');
   let ss = null;
   let isNewBuild = false;
 
+  // 1. Tenta abrir a planilha existente e valida se a aba principal está lá
   if (dbId) {
     try { 
       ss = SpreadsheetApp.openById(dbId); 
       if (!ss.getSheetByName("LOCAIS_EVENTOS")) {
-        ss = null; 
-        props.deleteProperty('RINCON_OPS_DB');
+        ss = null; // Arquivo corrompido ou na lixeira
       }
     } 
-    catch(e) { 
-      ss = null; 
-      props.deleteProperty('RINCON_OPS_DB');
-    }
+    catch(e) { ss = null; }
   }
   
+  // 2. Constrói do zero se não existir ou estiver corrompido
   if (!ss) {
     isNewBuild = true;
     ss = SpreadsheetApp.create("DB_Rincon_Ops");
     dbId = ss.getId();
     props.setProperty('RINCON_OPS_DB', dbId);
     
-    setupSheet(ss, "LOCAIS_EVENTOS", [
-      "ID", "Nome", "Tipo", "Endereço", "Cidade", "Responsável", 
-      "Telefone", "Maps_Link", "Data_Inicio", "Hora_Inicio", 
-      "Data_Fim", "Hora_Fim", "Status"
-    ]);
-    
+    // Constrói todas as abas e cabeçalhos OBRIGATÓRIOS
+    setupSheet(ss, "LOCAIS_EVENTOS", ["ID", "Nome", "Tipo", "Data_Inicio", "Hora_Inicio", "Data_Fim", "Hora_Fim", "Status"]);
     setupSheet(ss, "FUNCIONARIOS", ["ID", "Nome", "Telefone", "Status"]);
-    setupSheet(ss, "FUNCOES", ["ID", "Nome", "Valor_Base"]);
+    setupSheet(ss, "FUNCOES", ["ID", "Nome"]);
+    setupSheet(ss, "ESCALAS", ["ID_Escala", "ID_Funcionario", "ID_LocalEvento", "Data", "Horario_Entrada", "Horario_Saida", "Status", "Funcao"]);
     
-    // 🔥 FIX: Coluna renomeada fisicamente para 'Data_Turno'
-    setupSheet(ss, "ESCALAS", [
-      "ID_Escala", "ID_Funcionario", "ID_LocalEvento", "Data_Turno", 
-      "Horario_Entrada", "Horario_Saida", "Status", "Funcao", 
-      "Valor", "Data_Pagamento", "Uniforme", "Escopo", "Contato"
-    ]);
-    
+    // Limpa aba inútil padrão
     const page1 = ss.getSheetByName("Página1");
-    if (page1 && ss.getSheets().length > 1) ss.deleteSheet(page1);
-
-    SpreadsheetApp.flush(); 
-    Utilities.sleep(2000); 
-  } else {
-    let funcSheet = ss.getSheetByName("FUNCOES");
-    if(funcSheet && funcSheet.getLastColumn() < 3) {
-      funcSheet.getRange(1, 3).setValue("Valor_Base").setFontWeight("bold").setBackground("#0f172a").setFontColor("#f59e0b");
-      SpreadsheetApp.flush();
+    if (page1 && ss.getSheets().length > 1) {
+      ss.deleteSheet(page1);
     }
+
+    // Trava o servidor para forçar a gravação
+    SpreadsheetApp.flush(); 
+    
+    // PAUSA DE 2 SEGUNDOS: Necessário para a replicação nos servidores do Google Drive
+    // Evita o erro "Unable to parse range" na Sheets API
+    Utilities.sleep(2000); 
   }
   
   _dbCacheId = dbId;
@@ -93,11 +83,13 @@ function setupSheet(ss, sheetName, headers) {
   }
 }
 
+// Retorna apenas a ID (Otimizado)
 function getDBId() {
   if (_dbCacheId) return _dbCacheId;
   return buildDatabaseStructure(); 
 }
 
+// Retorna o objeto (Usado nas funções antigas)
 function getSheet(name) { 
   return SpreadsheetApp.openById(getDBId()).getSheetByName(name); 
 }
@@ -115,18 +107,24 @@ function parseDateTime(dateStr, timeStr) {
   return new Date(y, m - 1, d, hr, min);
 }
 
+// ----------------------------------------------------------------------------
+// 4. LÓGICA DE NEGÓCIO E APIs (OTIMIZADO COM SHEETS API V4)
+// ----------------------------------------------------------------------------
+
 function getDashboardData() {
   try {
     const cache = CacheService.getScriptCache();
-    const cacheKey = 'dashboard_data_rincon_v5'; 
+    const cacheKey = 'dashboard_full_data';
     const cached = cache.get(cacheKey);
     
     if (cached) return JSON.parse(cached);
 
+    // 🔥 Invoca o Gatekeeper ANTES de qualquer coisa
     const ssId = getDBId();
     
+    // BATCH GET VIA SHEETS API
     const response = Sheets.Spreadsheets.Values.batchGet(ssId, {
-      ranges: ['LOCAIS_EVENTOS!A:M', 'FUNCIONARIOS!A:D', 'ESCALAS!A:M', 'FUNCOES!A:C']
+      ranges: ['LOCAIS_EVENTOS!A:H', 'FUNCIONARIOS!A:D', 'ESCALAS!A:H', 'FUNCOES!A:B']
     });
 
     const locaisRaw = sheetToJSON(response.valueRanges[0].values || [["ID"]]);
@@ -135,9 +133,7 @@ function getDashboardData() {
     const funcoesRaw = sheetToJSON(response.valueRanges[3].values || [["ID"]]);
     
     let funcoes = funcoesRaw.length > 0 ? funcoesRaw : [
-      {ID: '1', Nome: 'Vigilante', Valor_Base: '50'}, 
-      {ID: '2', Nome: 'Segurança Tático', Valor_Base: '80'}, 
-      {ID: '3', Nome: 'Chefe de Equipa', Valor_Base: '100'}
+      {ID: '1', Nome: 'Vigilante'}, {ID: '2', Nome: 'Segurança Tático'}, {ID: '3', Nome: 'Chefe de Equipa'}
     ];
 
     const now = new Date();
@@ -159,7 +155,7 @@ function getDashboardData() {
 }
 
 function invalidateDashboardCache() {
-  try { CacheService.getScriptCache().remove('dashboard_data_rincon_v5'); } catch(e) {}
+  try { CacheService.getScriptCache().remove('dashboard_full_data'); } catch(e) {}
 }
 
 function buildEscalasIndex(escalas) {
@@ -171,7 +167,6 @@ function buildEscalasIndex(escalas) {
   return index;
 }
 
-// 🔥 FIX: A validação agora mapeia 'Data_Turno'
 function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endStr, ignoreId, escalasIndex) {
   const newStart = parseDateTime(dateStr, startStr);
   let newEnd = parseDateTime(dateStr, endStr);
@@ -183,8 +178,8 @@ function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endSt
     if (esc.Status === 'Cancelado') continue;
     if (ignoreId && esc.ID_Escala === ignoreId) continue;
 
-    let escStart = parseDateTime(esc.Data_Turno, esc.Horario_Entrada);
-    let escEnd = parseDateTime(esc.Data_Turno, esc.Horario_Saida);
+    let escStart = parseDateTime(esc.Data, esc.Horario_Entrada);
+    let escEnd = parseDateTime(esc.Data, esc.Horario_Saida);
     if (escEnd <= escStart) escEnd.setDate(escEnd.getDate() + 1);
 
     if (newStart < escEnd && newEnd > escStart) {
@@ -193,6 +188,7 @@ function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endSt
   }
 }
 
+// Retém uso do nativo para edições isoladas (mais simples de manter na linha exata)
 function updateOrAddRow(sheetName, idColIndex, id, newData) {
   const sheet = getSheet(sheetName);
   const data = sheet.getDataRange().getValues();
@@ -204,12 +200,12 @@ function updateOrAddRow(sheetName, idColIndex, id, newData) {
   else sheet.appendRow(newData); 
 }
 
-function saveFuncao(payload) {
+function saveFuncao(nome) {
   try {
     const id = Utilities.getUuid();
-    getSheet("FUNCOES").appendRow([id, payload.Nome, payload.Valor_Base || '0']);
+    getSheet("FUNCOES").appendRow([id, nome]);
     invalidateDashboardCache();
-    return { success: true, data: { ID: id, Nome: payload.Nome, Valor_Base: payload.Valor_Base } };
+    return { success: true, data: { ID: id, Nome: nome } };
   } catch (e) { return { success: false, error: e.message }; }
 }
 
@@ -225,22 +221,7 @@ function saveFuncionario(payload) {
 function saveLocal(payload) {
   try {
     const id = payload.ID || Utilities.getUuid();
-    const rowData = [
-      id, 
-      payload.Nome, 
-      payload.Tipo, 
-      payload.Endereco || '', 
-      payload.Cidade || '', 
-      payload.Responsavel || '', 
-      payload.Telefone || '', 
-      payload.Maps_Link || '', 
-      payload.Data_Inicio || '', 
-      payload.Hora_Inicio || '', 
-      payload.Data_Fim || '', 
-      payload.Hora_Fim || '', 
-      payload.Status || 'Ativo'
-    ];
-    updateOrAddRow("LOCAIS_EVENTOS", 0, id, rowData);
+    updateOrAddRow("LOCAIS_EVENTOS", 0, id, [id, payload.Nome, payload.Tipo, payload.Data_Inicio||'', payload.Hora_Inicio||'', payload.Data_Fim||'', payload.Hora_Fim||'', payload.Status || 'Ativo']);
     invalidateDashboardCache();
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
@@ -248,46 +229,43 @@ function saveLocal(payload) {
 
 function saveEscalaBatch(payloads) {
   try {
+    // 🔥 Garante a estrutura e pega o ID
     const ssId = getDBId();
-    const response = Sheets.Spreadsheets.Values.get(ssId, 'ESCALAS!A:M');
+    
+    // API para leitura rápida do estado atual
+    const response = Sheets.Spreadsheets.Values.get(ssId, 'ESCALAS!A:H');
     const escalasAtuais = sheetToJSON(response.values || [["ID_Escala"]]);
     const escalasIndex = buildEscalasIndex(escalasAtuais);
 
     for (let payload of payloads) {
-      validateConflictMemoryOptimized(payload.ID_Funcionario, payload.Data_Turno, payload.Horario_Entrada, payload.Horario_Saida, payload.ID_Escala, escalasIndex);
+      validateConflictMemoryOptimized(payload.ID_Funcionario, payload.Data, payload.Horario_Entrada, payload.Horario_Saida, payload.ID_Escala, escalasIndex);
     }
 
+    // BATCH UPDATE VIA SHEETS API
     let newRows = [];
     
     for (let payload of payloads) {
-      let rowData = [
-        payload.ID_Escala || Utilities.getUuid(), 
-        payload.ID_Funcionario, 
-        payload.ID_LocalEvento, 
-        payload.Data_Turno, 
-        payload.Horario_Entrada, 
-        payload.Horario_Saida, 
-        payload.Status || 'Confirmado', 
-        payload.Funcao || 'Vigilante',
-        payload.Valor || '',
-        payload.Data_Pagamento || '',
-        payload.Uniforme || '',
-        payload.Escopo || '',
-        payload.Contato || ''
-      ];
-
       if (!payload.ID_Escala) {
-        newRows.push(rowData);
+        newRows.push([
+          Utilities.getUuid(), payload.ID_Funcionario, payload.ID_LocalEvento, 
+          payload.Data, payload.Horario_Entrada, payload.Horario_Saida, 
+          payload.Status || 'Confirmado', payload.Funcao || 'Vigilante'
+        ]);
       } else {
-        updateOrAddRow("ESCALAS", 0, payload.ID_Escala, rowData);
+        updateOrAddRow("ESCALAS", 0, payload.ID_Escala, [
+          payload.ID_Escala, payload.ID_Funcionario, payload.ID_LocalEvento, 
+          payload.Data, payload.Horario_Entrada, payload.Horario_Saida, 
+          payload.Status || 'Confirmado', payload.Funcao || 'Vigilante'
+        ]);
       }
     }
 
+    // Insere registros em massa instantaneamente
     if (newRows.length > 0) {
       Sheets.Spreadsheets.Values.append(
         { values: newRows }, 
         ssId, 
-        'ESCALAS!A:M', 
+        'ESCALAS!A:H', 
         { valueInputOption: 'USER_ENTERED' }
       );
     }
