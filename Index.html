@@ -11,10 +11,11 @@
     <meta name="description" content="Sistema completo de gestão operacional tática para a Rincon Security. Controle escalas, postos e efetivos em tempo real." />
     <meta name="author" content="Rincon Security" />
 
-    <!-- Open Graph (Gera o Card no WhatsApp/Slack/Telegram se fora do iframe) -->
+    <!-- Open Graph (Gera o Card no WhatsApp/Slack/Telegram) -->
     <meta property="og:title" content="Rincon Ops - Command Center" />
     <meta property="og:description" content="Gestão Operacional e Escalas Táticas - Rincon Security." />
     <meta property="og:type" content="website" />
+    <!-- Link convertido para leitura direta de imagem do Google Drive -->
     <meta property="og:image" content="https://drive.google.com/uc?export=view&id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf" />
     <meta property="og:locale" content="pt_PT" />
     <meta property="og:site_name" content="Rincon Security" />
@@ -24,25 +25,14 @@
     <meta name="twitter:title" content="Rincon Ops - Command Center" />
     <meta name="twitter:image" content="https://drive.google.com/uc?export=view&id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf" />
 
-    <!-- Favicon -->
+    <!-- Favicon e Mobile App Icons (Adicionar à Tela Inicial) -->
     <link rel="icon" type="image/png" href="https://drive.google.com/uc?export=view&id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf" />
     <link rel="apple-touch-icon" sizes="180x180" href="https://drive.google.com/uc?export=view&id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf" />
 
     <!-- ========================================== -->
-    <!-- 2. PROTEÇÃO E HACKS (Global Error & Favicon)-->
+    <!-- 2. PROTEÇÃO ANTI-FALHAS (Global Error)     -->
     <!-- ========================================== -->
     <script>
-        // Força a alteração do Favicon via JS (Hack para sobrepor o ícone padrão do AppScript)
-        document.addEventListener("DOMContentLoaded", function() {
-            var link = document.querySelector("link[rel~='icon']");
-            if (!link) {
-                link = document.createElement('link');
-                link.rel = 'icon';
-                document.head.appendChild(link);
-            }
-            link.href = 'https://drive.google.com/uc?export=view&id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf';
-        });
-
         // Captura erros críticos de carregamento antes do Vue.js iniciar
         window.addEventListener('error', function(event) {
             console.error("Erro Crítico Capturado:", event.message);
