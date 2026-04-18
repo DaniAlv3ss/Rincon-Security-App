@@ -1,0 +1,55 @@
+<!-- Mobile Header -->
+<div class="d-lg-none fixed-top bg-body border-bottom border-secondary border-opacity-25 p-3 d-flex justify-content-between align-items-center" style="z-index: 1040;">
+    <div class="d-flex align-items-center gap-2">
+        <!-- Logo Rincon no Mobile (Apenas a imagem limpa com fallback) -->
+        <img src="https://lh3.googleusercontent.com/d/1B0rerjd92_orghMcTAZAxb08yEAu9tVf" onerror="this.src='https://ui-avatars.com/api/?name=Rincon+Ops&background=09090b&color=f59e0b&bold=true'" alt="Logo Rincon" style="width: 36px; height: 36px; object-fit: contain;">
+        <span class="font-heading fw-bold text-main">RINCON <span class="text-gold">OPS</span></span>
+    </div>
+    <div class="d-flex gap-2">
+         <button class="btn btn-sm btn-outline-secondary border-0" @click="toggleTheme" type="button">
+             <span :key="'theme-mob-' + isDarkMode"><i :data-lucide="isDarkMode ? 'sun' : 'moon'"></i></span>
+         </button>
+        <button class="btn btn-sm btn-outline-secondary" @click="toggleSidebar" type="button"><i data-lucide="menu"></i></button>
+    </div>
+</div>
+
+<div v-if="mobileMenuOpen" class="d-lg-none position-fixed top-0 start-0 w-100 h-100 bg-black bg-opacity-75" style="z-index: 1029;" @click="toggleSidebar"></div>
+
+<!-- Sidebar -->
+<aside :class="['sidebar', { 'show': mobileMenuOpen }]">
+    <div class="p-4 d-flex align-items-center justify-content-center border-bottom" style="height: 80px; border-color: var(--border-color) !important;">
+        <div class="d-flex align-items-center gap-3">
+            <!-- Logo Rincon no Desktop (Apenas a imagem limpa com fallback) -->
+            <img src="https://lh3.googleusercontent.com/d/1B0rerjd92_orghMcTAZAxb08yEAu9tVf" onerror="this.src='https://ui-avatars.com/api/?name=Rincon+Ops&background=09090b&color=f59e0b&bold=true'" alt="Logo Rincon" style="width: 45px; height: 45px; object-fit: contain;">
+            <div class="d-none d-lg-block">
+                <h5 class="m-0 font-heading fw-bold" style="color: var(--text-main);">RINCON</h5>
+                <small class="text-gold fw-bold" style="letter-spacing: 2px; font-size: 0.7rem;">COMMAND CENTER</small>
+            </div>
+        </div>
+    </div>
+
+    <nav class="flex-grow-1 p-3 d-flex flex-column gap-2">
+        <a href="#" @click.prevent="switchView('dashboard')" :class="['nav-link-custom', { active: currentView === 'dashboard' }]"><i data-lucide="layout-grid" class="nav-icon"></i> DASHBOARD</a>
+        <a href="#" @click.prevent="switchView('events')" :class="['nav-link-custom', { active: currentView === 'events' }]"><i data-lucide="map-pin" class="nav-icon"></i> LOCAIS / EVENTOS</a>
+        <a href="#" @click.prevent="switchView('schedule')" :class="['nav-link-custom', { active: currentView === 'schedule' }]"><i data-lucide="table-2" class="nav-icon"></i> ESCALAS TÁTICAS</a>
+        <a href="#" @click.prevent="switchView('guards')" :class="['nav-link-custom', { active: currentView === 'guards' }]"><i data-lucide="users" class="nav-icon"></i> EFETIVO</a>
+    </nav>
+
+    <div class="p-3 border-top" style="border-color: var(--border-color) !important; background-color: var(--bg-body);">
+         <div class="d-flex justify-content-between align-items-center mb-3 px-1">
+            <span class="small fw-bold text-muted text-uppercase" style="font-size: 0.7rem;">Modo de Visualização</span>
+            <div class="theme-toggle" @click="toggleTheme" title="Alternar Tema">
+                <span :key="'theme-desk-' + isDarkMode"><i :data-lucide="isDarkMode ? 'sun' : 'moon'" style="width: 18px; height: 18px;"></i></span>
+            </div>
+        </div>
+        <div class="d-flex align-items-center gap-3">
+            <div class="rounded-circle border border-warning border-opacity-50 p-1">
+                <img src="https://ui-avatars.com/api/?name=Admin+User&background=f59e0b&color=000" class="rounded-circle" width="36" height="36" alt="Admin">
+            </div>
+            <div>
+                <div class="fw-bold font-heading" style="font-size: 0.9rem; color: var(--text-main);">Administrador</div>
+                <div class="text-gold fw-bold" style="font-size: 0.7rem;">GESTOR GLOBAL</div>
+            </div>
+        </div>
+    </div>
+</aside>
