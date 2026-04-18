@@ -1,0 +1,486 @@
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.11/locales-all.global.min.js"></script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    // 🛡️ PRE-FLIGHT DB CHECK: Gatilho fantasma de segurança. 
+    // Garante que o banco seja construído no Google Sheets instantaneamente,
+    // blindando o backend contra falhas ou travamentos no frontend.
+    if (typeof google !== 'undefined' && google.script && google.script.run) {
+        console.log("🚀 Disparando gatilho de segurança para criação do banco de dados...");
+        google.script.run.getDashboardData(); 
+    }
+
+    const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+    const { jsPDF } = window.jspdf;
+
+    const runServer = (method, ...args) => {
+        return new Promise((resolve, reject) => {
+            if (typeof google !== 'undefined' && google.script && google.script.run) {
+                google.script.run
+                    .withSuccessHandler(r => r.success ? resolve(r.data) : reject(new Error(r.error)))
+                    .withFailureHandler(err => reject(new Error(err.message)))
+                    [method](...args);
+            } else {
+                reject(new Error("Conexão com Google Servers falhou."));
+            }
+        });
+    };
+
+    createApp({
+        setup() {
+            const isInitialLoading = ref(true);
+            const loadingProgress = ref(0);
+            const loadingMessage = ref('A Sincronizar Banco de Dados...');
+            const isLoading = ref(false);
+            const isDarkMode = ref(true);
+            const currentView = ref('dashboard');
+            const eventSubView = ref('active'); 
+            const guardSubView = ref('active'); 
+            const scheduleViewMode = ref('grid'); 
+            const activeModal = ref(null);
+            const pendingRoleIndex = ref(null);
+            const mobileMenuOpen = ref(false);
+            const todayDate = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+            const errorMsg = ref('');
+
+            const guards = ref([]);
+            const locations = ref([]);
+            const shifts = ref([]);
+            const funcoes = ref([]);
+
+            const topLocations = computed(() => {
+                const countMap = {};
+                shifts.value.forEach(s => {
+                    if(s.Status !== 'Cancelado') {
+                        countMap[s.ID_LocalEvento] = (countMap[s.ID_LocalEvento] || 0) + 1;
+                    }
+                });
+                return Object.entries(countMap)
+                    .map(([id, count]) => ({ nome: getLocationName(id), total: count }))
+                    .sort((a, b) => b.total - a.total)
+                    .slice(0, 5);
+            });
+
+            const guardsMap = computed(() => guards.value.reduce((map, g) => { map[g.ID] = g.Nome; return map; }, {}));
+            const locationsMap = computed(() => locations.value.reduce((map, l) => { map[l.ID] = l.Nome; return map; }, {}));
+
+            const getGuardName = (id) => guardsMap.value[id] || 'Desconhecido';
+            const getLocationName = (id) => locationsMap.value[id] || 'Local Removido';
+
+            const getInitials = (name) => {
+                if (!name || name.trim() === '') return 'U';
+                const parts = name.trim().split(' ');
+                if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+                return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+            };
+
+            const filteredLocations = computed(() => eventSubView.value === 'active' ? locations.value.filter(l => l.Status === 'Ativo' && !l.expired) : locations.value.filter(l => l.Status === 'Cancelado' || l.Status === 'Expirado' || l.expired));
+            const activeLocations = computed(() => locations.value.filter(l => l.Status === 'Ativo' && !l.expired));
+            const filteredGuards = computed(() => guardSubView.value === 'active' ? guards.value.filter(g => g.Status === 'Ativo') : guards.value.filter(g => g.Status === 'Inativo'));
+            const activeGuards = computed(() => guards.value.filter(g => g.Status === 'Ativo'));
+
+            const groupedShifts = computed(() => {
+                const todayIso = new Date().toISOString().split('T')[0];
+                let targetShifts = scheduleViewMode.value === 'grid' ? shifts.value.filter(s => s.Data >= todayIso && s.Status !== 'Cancelado') : shifts.value.filter(s => s.Data < todayIso || s.Status === 'Cancelado');
+                const groups = {};
+                const sorted = [...targetShifts].sort((a, b) => a.Data.localeCompare(b.Data));
+                sorted.forEach(s => { if(!groups[s.Data]) groups[s.Data] = []; groups[s.Data].push(s); });
+                return groups;
+            });
+
+            const shiftsToday = computed(() => {
+                const today = new Date().toISOString().split('T')[0];
+                return shifts.value.filter(s => s.Data === today && s.Status !== 'Cancelado');
+            });
+
+            // 🔥 FIX: Quarentena de variáveis (Strings Literais) para blindar contra Erro de Sintaxe
+            const formGuard = ref({ 
+                'ID': null, 
+                'Nome': '', 
+                'Telefone': '', 
+                'Status': 'Ativo' 
+            });
+            
+            const formLocation = ref({ 
+                'ID': null, 
+                'Nome': '', 
+                'isEvent': false, 
+                'Endereco': '', 
+                'Cidade': '', 
+                'Responsavel': '', 
+                'Telefone': '', 
+                'Data_Inicio': '', 
+                'Hora_Inicio': '', 
+                'Data_Fim': '', 
+                'Hora_Fim': '', 
+                'Status': 'Ativo' 
+            });
+            
+            const formRole = ref({ 
+                'Nome': '', 
+                'Valor_Base': '' 
+            });
+            
+            const formShift = ref({ 
+                'ID_Escala': null, 
+                'ID_LocalEvento': '', 
+                'Data': '', 
+                'Horario_Entrada': '', 
+                'Horario_Saida': '', 
+                'Status': 'Confirmado', 
+                'Valor': '', 
+                'Data_Pagamento': '', 
+                'Uniforme': '', 
+                'Escopo': '', 
+                'Contato': '',
+                'agentes': [{ 'ID_Funcionario': '', 'Funcao': '' }] 
+            });
+
+            const isEditingShift = computed(() => !!formShift.value.ID_Escala);
+
+            const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; document.documentElement.setAttribute('data-bs-theme', isDarkMode.value ? 'dark' : 'light'); };
+            const toggleSidebar = () => mobileMenuOpen.value = !mobileMenuOpen.value;
+            const switchView = (view) => { currentView.value = view; mobileMenuOpen.value = false; };
+            
+            const closeModal = () => { activeModal.value = null; };
+            const closeRoleModal = () => { 
+                activeModal.value = 'shift';
+                if(pendingRoleIndex.value !== null) formShift.value.agentes[pendingRoleIndex.value].Funcao = ''; 
+            };
+
+            const openModal = (modalName) => { 
+                errorMsg.value = ''; 
+                if(modalName === 'guard') {
+                    formGuard.value = { 'ID': null, 'Nome': '', 'Telefone': '', 'Status': 'Ativo' };
+                }
+                if(modalName === 'location') {
+                    formLocation.value = { 
+                        'ID': null, 'Nome': '', 'isEvent': false, 'Endereco': '', 'Cidade': '', 
+                        'Responsavel': '', 'Telefone': '', 'Data_Inicio': '', 'Hora_Inicio': '', 
+                        'Data_Fim': '', 'Hora_Fim': '', 'Status': 'Ativo' 
+                    };
+                }
+                if(modalName === 'shift') {
+                    formShift.value = { 
+                        'ID_Escala': null, 'ID_LocalEvento': '', 'Data': '', 'Horario_Entrada': '', 
+                        'Horario_Saida': '', 'Status': 'Confirmado', 'Valor': '', 'Data_Pagamento': '', 
+                        'Uniforme': '', 'Escopo': '', 'Contato': '', 
+                        'agentes': [{ 'ID_Funcionario': '', 'Funcao': '' }] 
+                    };
+                }
+                activeModal.value = modalName; 
+            };
+            
+            const _dateFormatCache = new Map();
+            const formatDateFull = (d) => {
+                if (!d) return '';
+                if (_dateFormatCache.has(d)) return _dateFormatCache.get(d);
+                const formatted = new Date(d + 'T00:00:00').toLocaleDateString('pt-PT', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+                if (_dateFormatCache.size >= 100) _dateFormatCache.clear();
+                _dateFormatCache.set(d, formatted);
+                return formatted;
+            };
+
+            const loadData = async () => {
+                try {
+                    const data = await runServer('getDashboardData');
+                    if(data) { 
+                        guards.value = data.funcionarios || []; 
+                        locations.value = data.locais || []; 
+                        shifts.value = data.escalas || []; 
+                        funcoes.value = data.funcoes || []; 
+                    }
+                } catch(e) { 
+                    alert("Erro de Conexão: " + e.message); 
+                }
+            };
+
+            const addAgentRow = () => { formShift.value.agentes.push({ 'ID_Funcionario': '', 'Funcao': '' }); };
+            const removeAgentRow = (idx) => { formShift.value.agentes.splice(idx, 1); };
+
+            const handleRoleChange = (event, index) => {
+                if (event.target.value === 'NEW_ROLE') {
+                    formRole.value = { 'Nome': '', 'Valor_Base': '' };
+                    pendingRoleIndex.value = index;
+                    activeModal.value = 'role';
+                }
+            };
+
+            const saveRole = async () => {
+                if (!formRole.value.Nome) return;
+                isLoading.value = true;
+                try {
+                    const res = await runServer('saveFuncao', formRole.value);
+                    funcoes.value.push(res.data);
+                    if(pendingRoleIndex.value !== null) {
+                        formShift.value.agentes[pendingRoleIndex.value].Funcao = res.data.Nome;
+                    }
+                    activeModal.value = 'shift';
+                } catch(e) { 
+                    alert("Erro ao criar função."); 
+                } finally { 
+                    isLoading.value = false; 
+                }
+            };
+
+            watch(() => formShift.value.ID_LocalEvento, (newLocId) => {
+                if(newLocId && !isEditingShift.value) {
+                    const loc = locations.value.find(l => l.ID === newLocId);
+                    if(loc && loc.Tipo === 'Evento' && loc.Data_Inicio) {
+                        formShift.value.Data = loc.Data_Inicio;
+                        formShift.value.Horario_Entrada = loc.Hora_Inicio;
+                        formShift.value.Horario_Saida = loc.Hora_Fim;
+                    }
+                }
+            });
+
+            const saveLocation = async () => { 
+                isLoading.value = true; 
+                try { 
+                    const mapsQuery = encodeURIComponent(`${formLocation.value.Endereco}, ${formLocation.value.Cidade}`);
+                    const mapsLink = formLocation.value.Endereco ? `https://www.google.com/maps/search/?api=1&query=${mapsQuery}` : '';
+
+                    const payload = { 
+                        ...formLocation.value, 
+                        'Tipo': formLocation.value.isEvent ? 'Evento' : 'Fixo',
+                        'Maps_Link': mapsLink 
+                    };
+
+                    await runServer('saveLocal', payload); 
+                    closeModal(); 
+                    await loadData(); 
+                } catch(e) { 
+                    alert(e.message); 
+                } finally { 
+                    isLoading.value = false; 
+                } 
+            };
+
+            // 🔥 FIX: Mapeamento blindado com Strings Literais
+            const saveShift = async () => {
+                isLoading.value = true; 
+                errorMsg.value = '';
+                try {
+                    const payloads = formShift.value.agentes.map(ag => {
+                        return {
+                            'ID_Escala': formShift.value.ID_Escala,
+                            'ID_LocalEvento': formShift.value.ID_LocalEvento,
+                            'Data': formShift.value.Data,
+                            'Horario_Entrada': formShift.value.Horario_Entrada,
+                            'Horario_Saida': formShift.value.Horario_Saida,
+                            'ID_Funcionario': ag.ID_Funcionario,
+                            'Funcao': ag.Funcao,
+                            'Status': formShift.value.Status,
+                            'Valor': formShift.value.Valor,
+                            'Data_Pagamento': formShift.value.Data_Pagamento,
+                            'Uniforme': formShift.value.Uniforme,
+                            'Escopo': formShift.value.Escopo,
+                            'Contato': formShift.value.Contato
+                        };
+                    });
+                    
+                    await runServer('saveEscalaBatch', payloads);
+                    closeModal(); 
+                    await loadData();
+                    
+                    if(scheduleViewMode.value === 'calendar') {
+                        initCalendar();
+                    }
+                } catch(e) { 
+                    errorMsg.value = e.message; 
+                } finally { 
+                    isLoading.value = false; 
+                }
+            };
+
+            const saveGuard = async () => { 
+                isLoading.value = true; 
+                try { 
+                    await runServer('saveFuncionario', formGuard.value); 
+                    closeModal(); 
+                    await loadData(); 
+                } catch(e) { 
+                    alert(e.message); 
+                } finally { 
+                    isLoading.value = false; 
+                } 
+            };
+            
+            const editLocation = (loc) => { 
+                formLocation.value = { 
+                    ...loc, 
+                    'Endereco': loc['Endereço'] || '', 
+                    'Responsavel': loc['Responsável'] || '',
+                    'isEvent': loc.Tipo === 'Evento' 
+                }; 
+                activeModal.value = 'location'; 
+            };
+            
+            const editGuard = (g) => { 
+                formGuard.value = { ...g }; 
+                activeModal.value = 'guard'; 
+            };
+            
+            const editShift = (shift) => { 
+                formShift.value = { 
+                    'ID_Escala': shift.ID_Escala, 
+                    'ID_LocalEvento': shift.ID_LocalEvento, 
+                    'Data': shift.Data, 
+                    'Horario_Entrada': shift.Horario_Entrada, 
+                    'Horario_Saida': shift.Horario_Saida, 
+                    'Status': shift.Status,
+                    'Valor': shift.Valor || '', 
+                    'Data_Pagamento': shift.Data_Pagamento || '', 
+                    'Uniforme': shift.Uniforme || '', 
+                    'Escopo': shift.Escopo || '', 
+                    'Contato': shift.Contato || '',
+                    'agentes': [{ 
+                        'ID_Funcionario': shift.ID_Funcionario, 
+                        'Funcao': shift.Funcao 
+                    }] 
+                }; 
+                activeModal.value = 'shift'; 
+            };
+            
+            const changeLocationStatus = async (id, s) => { 
+                if(confirm("Deseja cancelar?")){ 
+                    isLoading.value = true; 
+                    try{ 
+                        await runServer('saveLocal', {...locations.value.find(l => l.ID === id), Status: s}); 
+                        await loadData(); 
+                    } catch(e){} 
+                    finally{isLoading.value=false;} 
+                }
+            };
+            
+            const changeGuardStatus = async (id, s) => { 
+                isLoading.value = true; 
+                try{ 
+                    await runServer('saveFuncionario', {...guards.value.find(g => g.ID === id), Status: s}); 
+                    await loadData(); 
+                } catch(e){} 
+                finally{isLoading.value=false;} 
+            };
+            
+            const changeShiftStatus = async (id, s) => { 
+                if(confirm("Deseja cancelar este turno?")){ 
+                    isLoading.value = true; 
+                    try{ 
+                        await runServer('saveEscalaBatch', [{...shifts.value.find(x => x.ID_Escala === id), Status: s}]); 
+                        await loadData(); 
+                        if(scheduleViewMode.value === 'calendar') initCalendar(); 
+                    } catch(e){} 
+                    finally{isLoading.value=false;} 
+                }
+            };
+            
+            const deleteRecord = async (sheet, id) => { 
+                if(confirm("A exclusão não pode ser desfeita. Continuar?")){ 
+                    isLoading.value = true; 
+                    try{ 
+                        await runServer('deleteRow', sheet, id); 
+                        await loadData(); 
+                    } catch(e){} 
+                    finally{isLoading.value=false;} 
+                }
+            };
+
+            const generatePDFDay = (dateStr, shiftsArray) => {
+                const doc = new jsPDF();
+                doc.setFillColor(40, 40, 43); doc.rect(0, 0, 210, 25, 'F');
+                doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RINCON OPS", 14, 16);
+                doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("ESCALA TÁTICA", 155, 16);
+                doc.setTextColor(40, 40, 43); doc.setFontSize(14); doc.text(`Data Base: ${formatDateFull(dateStr)}`, 14, 40);
+                const tableData = shiftsArray.map(s => [ getLocationName(s.ID_LocalEvento), getGuardName(s.ID_Funcionario), s.Funcao || 'Vigilante', `${s.Horario_Entrada} as ${s.Horario_Saida}` ]);
+                doc.autoTable({ startY: 48, head: [['Local / Evento', 'Agente', 'Função', 'Turno']], body: tableData, theme: 'grid', headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0] }, styles: { fontSize: 9 } });
+                doc.save(`escala_${dateStr}.pdf`);
+            };
+
+            const generatePDFAll = () => {
+                const doc = new jsPDF();
+                doc.setFillColor(40, 40, 43); doc.rect(0, 0, 210, 25, 'F');
+                doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RINCON OPS", 14, 16);
+                doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("RELATÓRIO GERAL", 155, 16);
+                let y = 35;
+                for (let date in groupedShifts.value) {
+                    if(y > 250) { doc.addPage(); y = 20; }
+                    doc.setTextColor(40, 40, 43); doc.setFontSize(12); doc.text(`Dia: ${formatDateFull(date)}`, 14, y);
+                    const tableData = groupedShifts.value[date].map(s => [ getLocationName(s.ID_LocalEvento), getGuardName(s.ID_Funcionario), s.Funcao || '-', `${s.Horario_Entrada}-${s.Horario_Saida}` ]);
+                    doc.autoTable({ startY: y + 5, head: [['Local', 'Agente', 'Função', 'Horário']], body: tableData, theme: 'grid', headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0] }, styles: { fontSize: 8 }, margin:{bottom: 15} });
+                    y = doc.lastAutoTable.finalY + 15;
+                }
+                doc.save(`todas_escalas.pdf`);
+            };
+
+            let calendarInstance = null;
+            const initCalendar = () => {
+                const el = document.getElementById('calendar'); 
+                if(!el) return; 
+                const events = shifts.value.filter(s => s.Status !== 'Cancelado').map(s => {
+                    const dtStart = new Date(`${s.Data}T${s.Horario_Entrada}:00`); let dtEnd = new Date(`${s.Data}T${s.Horario_Saida}:00`);
+                    if(dtEnd <= dtStart) dtEnd.setDate(dtEnd.getDate() + 1);
+                    return { id: s.ID_Escala, title: `${getGuardName(s.ID_Funcionario)} @ ${getLocationName(s.ID_LocalEvento)}`, start: dtStart.toISOString(), end: dtEnd.toISOString(), backgroundColor: 'var(--rincon-gold)', borderColor: 'transparent', textColor: 'black' };
+                });
+                if (calendarInstance) {
+                    calendarInstance.batchRendering(() => { calendarInstance.removeAllEvents(); calendarInstance.addEventSource(events); });
+                } else {
+                    calendarInstance = new FullCalendar.Calendar(el, { initialView: 'dayGridMonth', locale: 'pt-br', headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }, events: events });
+                    calendarInstance.render();
+                }
+            };
+
+            watch([currentView, scheduleViewMode], async () => { 
+                if(currentView.value === 'schedule' && scheduleViewMode.value === 'calendar') { 
+                    await nextTick(); initCalendar(); 
+                    requestAnimationFrame(() => { if (calendarInstance) calendarInstance.updateSize(); });
+                } 
+            });
+            
+            onMounted(() => { 
+                let lucideRafId = null;
+                const observer = new MutationObserver(() => {
+                    if (lucideRafId) cancelAnimationFrame(lucideRafId);
+                    lucideRafId = requestAnimationFrame(() => {
+                        if (window.lucide) {
+                            observer.disconnect(); window.lucide.createIcons();
+                            const appEl = document.getElementById('app');
+                            if(appEl) observer.observe(appEl, { childList: true, subtree: true });
+                        }
+                    });
+                });
+                const appEl = document.getElementById('app');
+                if(appEl) observer.observe(appEl, { childList: true, subtree: true });
+
+                let simProgress = setInterval(() => {
+                    if(loadingProgress.value < 85) loadingProgress.value += Math.random() * 20;
+                    if(loadingProgress.value > 50) loadingMessage.value = 'A Carregar Módulos de Operação...';
+                }, 150);
+
+                loadData().then(() => {
+                    clearInterval(simProgress);
+                    loadingProgress.value = 100;
+                    loadingMessage.value = 'Sistema Pronto';
+                    setTimeout(() => {
+                        isInitialLoading.value = false;
+                        nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+                    }, 500); 
+                }); 
+            });
+
+            return {
+                isInitialLoading, loadingProgress, loadingMessage, isLoading, isDarkMode, currentView, scheduleViewMode, eventSubView, guardSubView, activeModal, mobileMenuOpen, todayDate, errorMsg, getInitials,
+                filteredLocations, activeLocations, filteredGuards, activeGuards, groupedShifts, shiftsToday, guards, locations, shifts, funcoes, topLocations,
+                formGuard, formLocation, formShift, formRole, isEditingShift,
+                toggleTheme, toggleSidebar, switchView, openModal, closeModal, closeRoleModal, formatDateFull, addAgentRow, removeAgentRow, handleRoleChange, saveRole,
+                getGuardName, getLocationName, saveGuard, saveLocation, saveShift, deleteRecord,
+                editLocation, changeLocationStatus, editGuard, changeGuardStatus, editShift, changeShiftStatus,
+                generatePDFDay, generatePDFAll
+            };
+        }
+    }).mount('#app');
+</script>
