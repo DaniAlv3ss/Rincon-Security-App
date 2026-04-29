@@ -1,50 +1,76 @@
-<div>
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
-        <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Locais & Eventos</h2></div>
-        <div class="d-flex align-items-center gap-3 mt-3 mt-md-0">
-            <div class="sub-nav-tabs">
-                <button @click="eventSubView = 'active'" :class="['sub-nav-btn', { active: eventSubView === 'active' }]">Ativos</button>
-                <button @click="eventSubView = 'history'" :class="['sub-nav-btn', { active: eventSubView === 'history' }]">Histórico</button>
+<transition name="view-fade" mode="out-in">
+    <div>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
+            <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Locais & Eventos</h2></div>
+            <div class="d-flex align-items-center gap-3 mt-3 mt-md-0">
+                <div class="sub-nav-tabs shadow-sm">
+                    <button @click="eventSubView = 'active'" :class="['sub-nav-btn btn-anim', { active: eventSubView === 'active' }]">Ativos</button>
+                    <button @click="eventSubView = 'history'" :class="['sub-nav-btn btn-anim', { active: eventSubView === 'history' }]">Histórico</button>
+                </div>
+                <button v-if="eventSubView === 'active'" @click="openModal('location')" class="btn btn-gold fw-bold d-flex align-items-center gap-2 shadow-sm btn-anim" type="button"><i data-lucide="plus" style="width: 16px;"></i> NOVO LOCAL</button>
             </div>
-            <button v-if="eventSubView === 'active'" @click="openModal('location')" class="btn btn-gold fw-bold d-flex align-items-center gap-2" type="button"><i data-lucide="plus" style="width: 16px;"></i> NOVO</button>
+        </div>
+
+        <div class="glass-panel p-0 rounded-3 overflow-hidden shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle m-0" style="color: var(--text-main); --bs-table-bg: transparent; --bs-table-hover-bg: rgba(245, 158, 11, 0.05);">
+                    <thead style="background-color: var(--bg-surface); border-bottom: 2px solid var(--border-color);">
+                        <tr>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3 ps-4">Local / Evento</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3">Período / Contrato</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3">Localização</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3 text-center">Status</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3 text-end pe-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <transition-group tag="tbody" name="list">
+                        <tr v-for="loc in filteredLocations" :key="loc.ID" style="border-color: var(--border-color);">
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center gap-3 py-1">
+                                    <div class="rounded-circle bg-body d-flex align-items-center justify-content-center text-gold border shadow-sm" style="width: 40px; height: 40px; border-color: var(--border-color) !important;">
+                                        <i :data-lucide="loc.Tipo === 'Evento' ? 'tent' : 'building'" style="width: 18px;"></i>
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold fs-6">{{ loc.Nome }}</div>
+                                        <span :class="['badge bg-body border mt-1', loc.Tipo === 'Evento' ? 'text-info border-info border-opacity-50' : 'text-warning border-warning border-opacity-50']" style="font-size: 0.65rem;">{{ loc.Tipo }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="small fw-semibold text-muted">
+                                    <template v-if="loc.Tipo === 'Evento'">
+                                        <div class="d-flex align-items-center gap-1"><i data-lucide="calendar" style="width: 12px;"></i> {{ loc.Data_Inicio }} às {{ loc.Hora_Inicio }}</div>
+                                        <div class="d-flex align-items-center gap-1 mt-1"><i data-lucide="calendar-off" style="width: 12px;"></i> {{ loc.Data_Fim }} às {{ loc.Hora_Fim }}</div>
+                                    </template>
+                                    <template v-else>
+                                        <div v-if="loc.TipoFixoDuracao === 'personalizado'" class="d-flex align-items-center gap-1"><i data-lucide="calendar-clock" style="width: 12px;"></i> Até {{ loc.Data_Fim }}</div>
+                                        <div v-else class="d-flex align-items-center gap-1"><i data-lucide="infinity" style="width: 12px;"></i> Tempo Indeterminado</div>
+                                    </template>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="small fw-semibold text-muted">
+                                    <div v-if="loc.Cidade || loc.Estado"><i data-lucide="map-pin" style="width: 12px; margin-right: 4px;"></i> {{ loc.Cidade }} {{ loc.Estado ? '- ' + loc.Estado : '' }}</div>
+                                    <div v-else>--</div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span v-if="loc.Status === 'Expirado'" class="badge bg-danger bg-opacity-25 text-danger border border-danger px-2 py-1">EXPIRADO</span>
+                                <span v-else-if="loc.Status === 'Cancelado'" class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary px-2 py-1">CANCELADO</span>
+                                <span v-else class="badge bg-success bg-opacity-25 text-success border border-success px-2 py-1">ATIVO</span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button @click="editLocation(loc)" class="btn btn-sm btn-link text-muted p-1 hover-text-gold me-1 btn-anim" title="Editar"><i data-lucide="pencil" style="width: 18px;"></i></button>
+                                <button v-if="loc.Status === 'Ativo'" @click="changeLocationStatus(loc.ID, 'Cancelado')" class="btn btn-sm btn-link text-warning p-1 me-1 btn-anim" title="Cancelar/Arquivar"><i data-lucide="ban" style="width: 18px;"></i></button>
+                                <button @click="deleteRecord('LOCAIS_EVENTOS', loc.ID)" class="btn btn-sm btn-link text-danger p-1 btn-anim" title="Excluir Definitivamente"><i data-lucide="trash-2" style="width: 18px;"></i></button>
+                            </td>
+                        </tr>
+                        <tr v-if="filteredLocations.length === 0" key="empty">
+                            <td colspan="5" class="text-center py-5 text-muted">Nenhum registo encontrado nesta visão.</td>
+                        </tr>
+                    </transition-group>
+                </table>
+            </div>
         </div>
     </div>
-
-    <div class="row g-4">
-        <transition-group name="list">
-            <div v-for="loc in filteredLocations" :key="loc.ID" class="col-12 col-md-6 col-xl-4">
-                <div class="glass-panel p-4 rounded-3 h-100 card-custom position-relative">
-                    <div v-if="eventSubView === 'active'" class="dropdown position-absolute top-0 end-0 m-3">
-                        <button class="btn btn-sm btn-link text-muted p-0 border-0 dropdown-toggle" data-bs-toggle="dropdown" type="button"><i data-lucide="more-vertical" style="width: 18px; pointer-events: none;"></i></button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="background-color: var(--bg-surface); border-color: var(--border-color);">
-                            <li><a class="dropdown-item" href="#" @click.prevent="editLocation(loc)"><i data-lucide="pencil" style="width: 14px; margin-right:8px;"></i> Editar</a></li>
-                            <li><hr class="dropdown-divider" style="border-color: var(--border-color);"></li>
-                            <li><a class="dropdown-item text-danger" href="#" @click.prevent="changeLocationStatus(loc.ID, 'Cancelado')"><i data-lucide="ban" style="width: 14px; margin-right:8px;"></i> Cancelar / Arquivar</a></li>
-                        </ul>
-                    </div>
-
-                    <div class="d-flex align-items-center gap-3 mb-3">
-                        <div class="rounded-circle bg-body d-flex align-items-center justify-content-center text-gold border" style="width: 45px; height: 45px; border-color: var(--border-color) !important;">
-                            <span :key="'icon-' + loc.Tipo"><i :data-lucide="loc.Tipo === 'Evento' ? 'tent' : 'building'" style="width: 20px;"></i></span>
-                        </div>
-                        <div>
-                            <h5 class="fw-bold m-0" style="color: var(--text-main);">{{ loc.Nome }}</h5>
-                            <span :class="['badge bg-body border mt-1', loc.Tipo === 'Evento' ? 'text-info border-info border-opacity-50' : 'text-warning border-warning border-opacity-50']">{{ loc.Tipo }}</span>
-                        </div>
-                    </div>
-                    <div class="small fw-semibold mt-3" style="color: var(--text-muted);">
-                        <div v-if="loc.Tipo === 'Evento'" class="d-flex align-items-center gap-2 mb-2"><i data-lucide="calendar" style="width: 14px;"></i> {{ loc.Data_Inicio }} às {{ loc.Hora_Inicio }}</div>
-                        <div v-if="loc.Tipo === 'Evento'" class="d-flex align-items-center gap-2"><i data-lucide="calendar-off" style="width: 14px;"></i> {{ loc.Data_Fim }} às {{ loc.Hora_Fim }}</div>
-                        <div v-else class="d-flex align-items-center gap-2"><i data-lucide="infinity" style="width: 14px;"></i> Operação Contínua</div>
-                    </div>
-                    <div class="mt-4 border-top pt-3" style="border-color: var(--border-color) !important;">
-                        <span v-if="loc.Status === 'Expirado'" class="badge bg-danger bg-opacity-25 text-danger border border-danger px-3 py-2">EXPIRADO</span>
-                        <span v-else-if="loc.Status === 'Cancelado'" class="badge bg-secondary bg-opacity-25 text-secondary border border-secondary px-3 py-2">CANCELADO</span>
-                        <span v-else class="badge bg-success bg-opacity-25 text-success border border-success px-3 py-2">ATIVO</span>
-                    </div>
-                </div>
-            </div>
-        </transition-group>
-        <div v-if="filteredLocations.length === 0" class="col-12 text-center py-5 text-muted">Nenhum registo encontrado nesta visão.</div>
-    </div>
-</div>
+</transition>
