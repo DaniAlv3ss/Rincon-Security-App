@@ -1,8 +1,7 @@
-<!-- Mobile Header -->
 <div class="d-lg-none fixed-top bg-body border-bottom border-secondary border-opacity-25 p-3 d-flex justify-content-between align-items-center" style="z-index: 1040;">
     <div class="d-flex align-items-center gap-2">
-        <i data-lucide="shield-check" class="text-gold" style="width: 24px;"></i>
-        <span class="font-heading fw-bold text-main">RINCON <span class="text-gold">OPS</span></span>
+        <img src="https://drive.google.com/thumbnail?id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf&sz=w200" alt="Rincon Logo" style="width: 28px; height: 28px; border-radius: 6px; object-fit: cover; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+        <span class="font-heading fw-bold text-main">RINCON <span class="text-gold">SECURITY</span></span>
     </div>
     <div class="d-flex gap-2">
          <button class="btn btn-sm btn-outline-secondary border-0" @click="toggleTheme" type="button">
@@ -14,16 +13,14 @@
 
 <div v-if="mobileMenuOpen" class="d-lg-none position-fixed top-0 start-0 w-100 h-100 bg-black bg-opacity-75" style="z-index: 1029;" @click="toggleSidebar"></div>
 
-<!-- Sidebar -->
 <aside :class="['sidebar', { 'show': mobileMenuOpen }]">
     <div class="p-4 d-flex align-items-center justify-content-center border-bottom" style="height: 80px; border-color: var(--border-color) !important;">
         <div class="d-flex align-items-center gap-3">
-            <div class="bg-body p-2 rounded border" style="border-color: var(--border-color) !important;">
-                <i data-lucide="shield-check" class="text-gold" style="width: 28px; height: 28px;"></i>
-            </div>
+            <img src="https://drive.google.com/thumbnail?id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf&sz=w200" alt="Rincon Logo" class="border" style="width: 48px; height: 48px; border-radius: 10px; object-fit: cover; border-color: var(--border-color) !important; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+            
             <div class="d-none d-lg-block">
-                <h5 class="m-0 font-heading fw-bold" style="color: var(--text-main);">RINCON</h5>
-                <small class="text-gold fw-bold" style="letter-spacing: 2px; font-size: 0.7rem;">COMMAND CENTER</small>
+                <h5 class="m-0 font-heading fw-bold" style="color: var(--text-main);">RINCON SECURITY</h5>
+                <small class="text-gold fw-bold" style="letter-spacing: 2px; font-size: 0.7rem;">GESTÃO DE ESCALA</small>
             </div>
         </div>
     </div>
@@ -33,6 +30,7 @@
         <a href="#" @click.prevent="switchView('events')" :class="['nav-link-custom', { active: currentView === 'events' }]"><i data-lucide="map-pin" class="nav-icon"></i> LOCAIS / EVENTOS</a>
         <a href="#" @click.prevent="switchView('schedule')" :class="['nav-link-custom', { active: currentView === 'schedule' }]"><i data-lucide="table-2" class="nav-icon"></i> ESCALAS TÁTICAS</a>
         <a href="#" @click.prevent="switchView('guards')" :class="['nav-link-custom', { active: currentView === 'guards' }]"><i data-lucide="users" class="nav-icon"></i> EFETIVO</a>
+        <a href="#" @click.prevent="switchView('roles')" :class="['nav-link-custom', { active: currentView === 'roles' }]"><i data-lucide="briefcase" class="nav-icon"></i> FUNÇÕES & VALORES</a>
     </nav>
 
     <div class="p-3 border-top" style="border-color: var(--border-color) !important; background-color: var(--bg-body);">
