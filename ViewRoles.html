@@ -1,0 +1,41 @@
+<transition name="view-fade" mode="out-in">
+    <div>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
+            <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Funções & Valores</h2></div>
+            <div class="d-flex align-items-center gap-3 mt-3 mt-md-0">
+                <button @click="openModal('role')" class="btn btn-gold fw-bold d-flex align-items-center gap-2 shadow-sm btn-anim" type="button"><i data-lucide="plus" style="width: 16px;"></i> NOVA FUNÇÃO</button>
+            </div>
+        </div>
+
+        <div class="glass-panel p-0 rounded-3 overflow-hidden shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle m-0" style="color: var(--text-main); --bs-table-bg: transparent; --bs-table-hover-bg: rgba(245, 158, 11, 0.05);">
+                    <thead style="background-color: var(--bg-surface); border-bottom: 2px solid var(--border-color);">
+                        <tr>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3 ps-4" style="width: 100px;">ID Tático</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3">Nomenclatura da Função</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3">Descrição Operacional</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3">Remuneração Base</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3 text-end pe-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <transition-group tag="tbody" name="list">
+                        <tr v-for="f in funcoes" :key="f.ID" style="border-color: var(--border-color);">
+                            <td class="ps-4 font-monospace text-muted small">{{ f.ID ? f.ID.substring(0,6) : '---' }}</td>
+                            <td class="fw-bold py-3"><i data-lucide="briefcase" style="width: 16px; margin-right: 8px; color: var(--rincon-gold);"></i> {{ f.Nome }}</td>
+                            <td class="text-muted small" style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ f.Descricao || 'Sem descrição cadastrada' }}</td>
+                            <td class="font-monospace text-success fw-bold">{{ f.Valor ? f.Valor + ' €' : '--' }}</td>
+                            <td class="text-end pe-4">
+                                <button @click="editRole(f)" class="btn btn-sm btn-link text-muted p-1 hover-text-gold me-2 btn-anim" title="Editar"><i data-lucide="pencil" style="width: 18px;"></i></button>
+                                <button @click="deleteRecord('FUNCOES', f.ID)" class="btn btn-sm btn-link text-danger p-1 btn-anim" title="Excluir"><i data-lucide="trash-2" style="width: 18px;"></i></button>
+                            </td>
+                        </tr>
+                        <tr v-if="funcoes.length === 0" key="empty">
+                            <td colspan="5" class="text-center py-5 text-muted">Nenhuma função cadastrada.</td>
+                        </tr>
+                    </transition-group>
+                </table>
+            </div>
+        </div>
+    </div>
+</transition>
