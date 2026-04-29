@@ -1,38 +1,52 @@
-<div>
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
-        <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Efetivo</h2></div>
-        <div class="d-flex align-items-center gap-3 mt-3 mt-md-0">
-            <div class="sub-nav-tabs">
-                <button @click="guardSubView = 'active'" :class="['sub-nav-btn', { active: guardSubView === 'active' }]">Atual</button>
-                <button @click="guardSubView = 'history'" :class="['sub-nav-btn', { active: guardSubView === 'history' }]">Inativos</button>
+<transition name="view-fade" mode="out-in">
+    <div>
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
+            <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Efetivo Corporativo</h2></div>
+            <div class="d-flex align-items-center gap-3 mt-3 mt-md-0">
+                <div class="sub-nav-tabs shadow-sm">
+                    <button @click="guardSubView = 'active'" :class="['sub-nav-btn btn-anim', { active: guardSubView === 'active' }]">Agentes Ativos</button>
+                    <button @click="guardSubView = 'history'" :class="['sub-nav-btn btn-anim', { active: guardSubView === 'history' }]">Inativos</button>
+                </div>
+                <button v-if="guardSubView === 'active'" @click="openModal('guard')" class="btn btn-gold fw-bold d-flex align-items-center gap-2 shadow-sm btn-anim" type="button"><i data-lucide="plus" style="width: 16px;"></i> NOVO AGENTE</button>
             </div>
-            <button v-if="guardSubView === 'active'" @click="openModal('guard')" class="btn btn-gold fw-bold d-flex align-items-center gap-2" type="button"><i data-lucide="plus" style="width: 16px;"></i> NOVO</button>
+        </div>
+
+        <div class="glass-panel p-0 rounded-3 overflow-hidden shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle m-0" style="color: var(--text-main); --bs-table-bg: transparent; --bs-table-hover-bg: rgba(245, 158, 11, 0.05);">
+                    <thead style="background-color: var(--bg-surface); border-bottom: 2px solid var(--border-color);">
+                        <tr>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3 ps-4">Nome do Agente</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3">Contato Telefone</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3 text-center">Status Operacional</th>
+                            <th class="border-0 text-muted small fw-bold text-uppercase py-3 text-end pe-4">Ações</th>
+                        </tr>
+                    </thead>
+                    <transition-group tag="tbody" name="list">
+                        <tr v-for="g in filteredGuards" :key="g.ID" style="border-color: var(--border-color);">
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center gap-3 py-1">
+                                    <div class="avatar-initials shadow-sm" style="width: 38px; height: 38px; font-size: 0.9rem;">{{ getInitials(g.Nome) }}</div>
+                                    <span class="fw-bold fs-6">{{ g.Nome }}</span>
+                                </div>
+                            </td>
+                            <td class="font-monospace text-muted">{{ g.Telefone }}</td>
+                            <td class="text-center">
+                                <span :class="['badge rounded-pill px-3 py-1 border', g.Status === 'Ativo' ? 'bg-success bg-opacity-25 text-success border-success' : 'bg-danger bg-opacity-25 text-danger border-danger']">{{ g.Status }}</span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button @click="editGuard(g)" class="btn btn-sm btn-link text-muted p-1 hover-text-gold me-1 btn-anim" title="Editar"><i data-lucide="pencil" style="width: 18px;"></i></button>
+                                <button v-if="g.Status === 'Ativo'" @click="changeGuardStatus(g.ID, 'Inativo')" class="btn btn-sm btn-link text-warning p-1 me-1 btn-anim" title="Desativar"><i data-lucide="user-minus" style="width: 18px;"></i></button>
+                                <button v-if="g.Status === 'Inativo'" @click="changeGuardStatus(g.ID, 'Ativo')" class="btn btn-sm btn-link text-success p-1 me-1 btn-anim" title="Reativar"><i data-lucide="user-check" style="width: 18px;"></i></button>
+                                <button @click="deleteRecord('FUNCIONARIOS', g.ID)" class="btn btn-sm btn-link text-danger p-1 btn-anim" title="Excluir"><i data-lucide="trash-2" style="width: 18px;"></i></button>
+                            </td>
+                        </tr>
+                        <tr v-if="filteredGuards.length === 0" key="empty">
+                            <td colspan="4" class="text-center py-5 text-muted">Nenhum agente encontrado nesta visão.</td>
+                        </tr>
+                    </transition-group>
+                </table>
+            </div>
         </div>
     </div>
-
-    <div class="row g-4">
-        <transition-group name="list">
-            <div v-for="g in filteredGuards" :key="g.ID" class="col-12 col-md-4 col-xl-3">
-                <div class="glass-panel p-4 rounded-3 h-100 text-center position-relative card-custom d-flex flex-column align-items-center">
-                    <div class="dropdown position-absolute top-0 end-0 m-2">
-                        <button class="btn btn-sm btn-link text-muted p-0 border-0 dropdown-toggle" data-bs-toggle="dropdown" type="button"><i data-lucide="more-vertical" style="width: 16px; pointer-events: none;"></i></button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="background-color: var(--bg-surface); border-color: var(--border-color);">
-                            <li><a class="dropdown-item" href="#" @click.prevent="editGuard(g)"><i data-lucide="pencil" style="width: 14px; margin-right:8px;"></i> Editar</a></li>
-                            <li v-if="g.Status === 'Ativo'"><a class="dropdown-item text-warning" href="#" @click.prevent="changeGuardStatus(g.ID, 'Inativo')"><i data-lucide="user-minus" style="width: 14px; margin-right:8px;"></i> Desativar</a></li>
-                            <li v-if="g.Status === 'Inativo'"><a class="dropdown-item text-success" href="#" @click.prevent="changeGuardStatus(g.ID, 'Ativo')"><i data-lucide="user-check" style="width: 14px; margin-right:8px;"></i> Reativar</a></li>
-                            <li><hr class="dropdown-divider" style="border-color: var(--border-color);"></li>
-                            <li><a class="dropdown-item text-danger" href="#" @click.prevent="deleteRecord('FUNCIONARIOS', g.ID)"><i data-lucide="trash-2" style="width: 14px; margin-right:8px;"></i> Eliminar</a></li>
-                        </ul>
-                    </div>
-                    <div class="avatar-initials mb-3 shadow-sm" style="width: 70px; height: 70px; font-size: 1.6rem;">{{ getInitials(g.Nome) }}</div>
-                    <h5 class="fw-bold mb-1" style="color: var(--text-main);">{{ g.Nome }}</h5>
-                    <div class="small fw-semibold mb-4 d-flex align-items-center justify-content-center gap-2 bg-body px-3 py-1 rounded-pill mt-2" style="color: var(--text-muted); border: 1px solid var(--border-color);"><i data-lucide="phone" style="width: 12px;"></i> {{ g.Telefone }}</div>
-                    <div class="mt-auto">
-                        <span :class="['badge rounded-pill px-3 py-2', g.Status === 'Ativo' ? 'bg-success bg-opacity-25 text-success border border-success' : 'bg-danger bg-opacity-25 text-danger border border-danger']">{{ g.Status }}</span>
-                    </div>
-                </div>
-            </div>
-        </transition-group>
-        <div v-if="filteredGuards.length === 0" class="col-12 text-center py-5 text-muted">Nenhum agente encontrado.</div>
-    </div>
-</div>
+</transition>
