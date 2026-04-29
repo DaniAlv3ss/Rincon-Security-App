@@ -1,119 +1,336 @@
 <!-- Modal Funcionario -->
-<div v-if="activeModal === 'guard'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow-lg">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold font-heading">{{ formGuard.ID ? 'Editar Agente' : 'Novo Agente' }}</h5>
-                <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
-            </div>
-            <div class="modal-body">
-                <form @submit.prevent="saveGuard">
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold text-uppercase">Nome</label>
-                        <input v-model="formGuard.Nome" type="text" class="form-control" required placeholder="Ex: João Alves">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold text-uppercase">Nº de Telefone</label>
-                        <input v-model="formGuard.Telefone" type="tel" class="form-control" required placeholder="(00) 00000-0000">
-                    </div>
-                    <button type="submit" class="btn btn-gold fw-bold w-100 mt-4 py-2">SALVAR</button>
-                </form>
+<transition name="modal-fade">
+    <div v-if="activeModal === 'guard'" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0 bg-surface">
+                <div class="modal-header border-bottom" style="border-color: var(--border-color) !important;">
+                    <h5 class="modal-title fw-bold font-heading text-main">{{ formGuard.ID ? 'Editar Agente' : 'Novo Agente' }}</h5>
+                    <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+                </div>
+                <div class="modal-body p-4 bg-body">
+                    <form @submit.prevent="saveGuard">
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold text-uppercase">Nome</label>
+                            <input v-model="formGuard.Nome" type="text" class="form-control" required placeholder="Ex: João Alves">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold text-uppercase">Nº de Telefone</label>
+                            <input v-model="formGuard.Telefone" type="tel" class="form-control" required placeholder="(00) 00000-0000">
+                        </div>
+                        <button type="submit" class="btn btn-gold fw-bold w-100 mt-4 py-3 shadow-sm btn-anim">SALVAR AGENTE</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
+</transition>
+
+<!-- Modal Função -->
+<transition name="modal-fade">
+    <div v-if="activeModal === 'role'" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0 bg-surface">
+                <div class="modal-header border-bottom" style="border-color: var(--border-color) !important;">
+                    <h5 class="modal-title fw-bold font-heading text-main">{{ formRole.ID ? 'Editar Função' : 'Nova Função' }}</h5>
+                    <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+                </div>
+                <div class="modal-body p-4 bg-body">
+                    <form @submit.prevent="saveRole">
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold text-uppercase">Nome da Função/Cargo</label>
+                            <input v-model="formRole.Nome" type="text" class="form-control" required placeholder="Ex: Supervisor Geral">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold text-uppercase">Valor Base / Remuneração</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-transparent text-muted" style="border-color: var(--border-color);">€</span>
+                                <input v-model="formRole.Valor" type="number" step="0.01" class="form-control" placeholder="0.00">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label text-muted small fw-bold text-uppercase">Descrição (O que faz?)</label>
+                            <textarea v-model="formRole.Descricao" class="form-control" rows="2" placeholder="Descreva brevemente as responsabilidades desta função..."></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-gold fw-bold w-100 mt-4 py-3 shadow-sm btn-anim">SALVAR FUNÇÃO</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</transition>
 
 <!-- Modal Local -->
-<div v-if="activeModal === 'location'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content shadow-lg">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold font-heading">{{ formLocation.ID ? 'Editar Local' : 'Novo Local / Evento' }}</h5>
-                <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
-            </div>
-            <div class="modal-body">
-                <form @submit.prevent="saveLocation">
-                    <div class="mb-3">
-                        <label class="form-label text-muted small fw-bold text-uppercase">Nome do Posto / Evento</label>
-                        <input v-model="formLocation.Nome" type="text" class="form-control" required>
-                    </div>
-                    <div class="mb-4 form-check form-switch bg-body p-3 rounded border" style="border-color: var(--border-color) !important;">
-                        <input class="form-check-input ms-0 me-3" type="checkbox" role="switch" id="isEventCheck" v-model="formLocation.isEvent">
-                        <label class="form-check-label text-gold fw-bold" for="isEventCheck">Este local é um Evento Temporário?</label>
-                    </div>
-                    <div v-if="formLocation.isEvent" class="row g-3">
-                        <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase">Data Início</label><input v-model="formLocation.Data_Inicio" type="date" class="form-control" required></div>
-                        <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase">Hora Início</label><input v-model="formLocation.Hora_Inicio" type="time" class="form-control" required></div>
-                        <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase">Data Fim</label><input v-model="formLocation.Data_Fim" type="date" class="form-control" required></div>
-                        <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase">Hora Fim</label><input v-model="formLocation.Hora_Fim" type="time" class="form-control" required></div>
-                    </div>
-                    <button type="submit" class="btn btn-gold fw-bold w-100 mt-4 py-2">SALVAR LOCAL</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal Escala (Multi-Agent) -->
-<div v-if="activeModal === 'shift'" class="modal fade show d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content shadow-lg">
-            <div class="modal-header">
-                <h5 class="modal-title fw-bold font-heading">{{ isEditingShift ? 'Editar Escala' : 'Alocar Múltiplos Efetivos' }}</h5>
-                <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
-            </div>
-            <div class="modal-body p-4">
-                <div v-if="errorMsg" class="alert alert-danger fw-bold small"><i data-lucide="alert-triangle" style="width: 16px;"></i> {{ errorMsg }}</div>
-                <form @submit.prevent="saveShift">
-                    <div class="row g-3 mb-4">
-                        <div class="col-12">
-                            <label class="form-label text-muted small fw-bold text-uppercase">Local / Evento</label>
-                            <select v-model="formShift.ID_LocalEvento" class="form-select" required>
-                                <option v-for="l in activeLocations" :key="l.ID" :value="l.ID">{{ l.Nome }} {{l.Tipo === 'Evento' ? '(Evento)' : '(Fixo)'}}</option>
-                            </select>
+<transition name="modal-fade">
+    <div v-if="activeModal === 'location'" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0 bg-surface">
+                <div class="modal-header border-bottom" style="border-color: var(--border-color) !important;">
+                    <h5 class="modal-title fw-bold font-heading text-main">{{ formLocation.ID ? 'Editar Local' : 'Novo Local' }}</h5>
+                    <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+                </div>
+                <div class="modal-body p-4 bg-body">
+                    <form @submit.prevent="saveLocation">
+                        <h6 class="fw-bold mb-3 text-gold border-bottom pb-2" style="border-color: var(--border-color) !important;"><i data-lucide="map" style="width: 16px; margin-right: 6px;"></i> Identificação Geográfica</h6>
+                        <div class="row g-3 mb-4">
+                            <div class="col-12 col-md-6">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Nome do Local</label>
+                                <input v-model="formLocation.Nome" type="text" class="form-control" required>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Link Google Maps</label>
+                                <input v-model="formLocation.EnderecoLink" type="url" class="form-control" placeholder="https://maps.app.goo.gl/...">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label text-muted small fw-bold text-uppercase">CEP <span class="text-secondary">(Opc.)</span></label>
+                                <input v-model="formLocation.CEP" type="text" class="form-control">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Cidade</label>
+                                <input v-model="formLocation.Cidade" type="text" class="form-control">
+                            </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label text-muted small fw-bold text-uppercase">Estado</label>
+                                <input v-model="formLocation.Estado" type="text" class="form-control">
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="bg-body p-3 rounded border mb-4" style="border-color: var(--border-color) !important;">
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" type="checkbox" id="syncTimeCheck" v-model="formShift.syncTime">
-                            <label class="form-check-label fw-bold" :class="formShift.syncTime ? 'text-gold' : 'text-muted'" for="syncTimeCheck">
-                                Sincronizar com os horários do Evento/Local
-                            </label>
+                        <h6 class="fw-bold mb-3 text-gold border-bottom pb-2" style="border-color: var(--border-color) !important;"><i data-lucide="activity" style="width: 16px; margin-right: 6px;"></i> Perfil da Operação</h6>
+                        
+                        <div class="form-check form-switch mb-4 p-3 bg-surface rounded border d-flex align-items-center gap-3 transition" style="border-color: var(--border-color) !important;">
+                            <input class="form-check-input ms-0 mt-0 cursor-pointer" type="checkbox" role="switch" id="tipoFixo" :checked="!formLocation.isEvent" @change="formLocation.isEvent = !$event.target.checked" style="width: 40px; height: 20px;">
+                            <label class="form-check-label fw-bold mb-0 cursor-pointer" :class="!formLocation.isEvent ? 'text-gold' : 'text-muted'" for="tipoFixo">Configurar como Posto Fixo</label>
                         </div>
-                        <div class="row g-3">
-                            <div class="col-12 col-md-4"><label class="form-label text-muted small fw-bold text-uppercase">Data do Turno</label><input v-model="formShift.Data" type="date" class="form-control" required :disabled="formShift.syncTime"></div>
-                            <div class="col-6 col-md-4"><label class="form-label text-muted small fw-bold text-uppercase">Entrada</label><input v-model="formShift.Horario_Entrada" type="time" class="form-control" required :disabled="formShift.syncTime"></div>
-                            <div class="col-6 col-md-4"><label class="form-label text-muted small fw-bold text-uppercase">Saída</label><input v-model="formShift.Horario_Saida" type="time" class="form-control" required :disabled="formShift.syncTime"></div>
-                        </div>
-                    </div>
 
-                    <hr style="border-color: var(--border-color);">
-                    <h6 class="fw-bold mb-3 text-gold">Agentes & Funções</h6>
+                        <transition name="fade-row">
+                            <div v-if="!formLocation.isEvent" class="row g-3 bg-surface p-3 rounded border mb-4" style="border-color: var(--border-color) !important;">
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Duração do Contrato</label>
+                                    <select v-model="formLocation.TipoFixoDuracao" class="form-select">
+                                        <option value="indeterminado">Tempo Indeterminado</option>
+                                        <option value="personalizado">Duração Personalizada (Com Data Fim)</option>
+                                    </select>
+                                </div>
+                                <div v-if="formLocation.TipoFixoDuracao === 'personalizado'" class="col-12 col-md-6">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Data de Término</label>
+                                    <input v-model="formLocation.Data_Fim" type="date" class="form-control" required>
+                                </div>
+                            </div>
+                        </transition>
 
-                    <div v-for="(agente, index) in formShift.agentes" :key="index" class="d-flex flex-column flex-md-row gap-2 mb-3 bg-body p-2 rounded border position-relative" style="border-color: var(--border-color) !important;">
-                        <div class="flex-grow-1">
-                            <select v-model="agente.ID_Funcionario" class="form-select border-0 bg-transparent" required>
-                                <option value="" disabled>Selecione um agente...</option>
-                                <option v-for="g in activeGuards" :key="g.ID" :value="g.ID">{{ g.Nome }} ({{g.Telefone}})</option>
-                            </select>
-                        </div>
-                        <div style="width: 2px; background: var(--border-color); margin: 5px 0;" class="d-none d-md-block"></div>
-                        <div class="flex-grow-1">
-                            <select v-model="agente.Funcao" @change="handleRoleChange($event, index)" class="form-select border-0 bg-transparent" required>
-                                <option value="" disabled>Atribuir Função...</option>
-                                <option v-for="f in funcoes" :key="f.ID" :value="f.Nome">{{ f.Nome }}</option>
-                                <option value="NEW_ROLE" class="text-gold fw-bold">+ Criar Nova Função</option>
-                            </select>
-                        </div>
-                        <button v-if="formShift.agentes.length > 1 && !isEditingShift" type="button" @click="removeAgentRow(index)" class="btn btn-link text-danger p-2"><i data-lucide="trash-2" style="width: 18px;"></i></button>
-                    </div>
-
-                    <button v-if="!isEditingShift" type="button" @click="addAgentRow" class="btn btn-sm btn-outline-secondary w-100 mb-4 fw-bold" style="border-style: dashed;"><i data-lucide="plus" style="width: 14px;"></i> ADICIONAR MAIS UM AGENTE</button>
-
-                    <button type="submit" class="btn btn-gold fw-bold w-100 py-3 mt-2">CONFIRMAR ALOCAÇÃO</button>
-                </form>
+                        <button type="submit" class="btn btn-gold fw-bold w-100 py-3 shadow-sm btn-anim">SALVAR LOCAL</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
+</transition>
+
+<!-- Modal Escala Otimizado -->
+<transition name="modal-fade">
+    <div v-if="activeModal === 'shift'" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content shadow-lg border-0 bg-surface">
+                <div class="modal-header border-bottom" style="border-color: var(--border-color) !important;">
+                    <h5 class="modal-title fw-bold font-heading text-main">{{ isEditingShift ? 'Editar Escala' : 'Nova Escala' }}</h5>
+                    <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+                </div>
+                <div class="modal-body p-0 bg-body">
+                    <div v-if="errorMsg" class="alert alert-danger m-4 fw-bold small"><i data-lucide="alert-triangle" style="width: 16px;"></i> {{ errorMsg }}</div>
+                    <form @submit.prevent="saveShift">
+                        <div class="row g-0">
+                            
+                            <div class="col-12 col-lg-5 p-4 border-end" style="border-color: var(--border-color) !important;">
+                                <h6 class="fw-bold mb-3 text-gold border-bottom pb-2" style="border-color: var(--border-color) !important;"><i data-lucide="map-pin" style="width: 16px; margin-right: 6px;"></i> Local da Escala</h6>
+                                
+                                <div class="mb-4 bg-surface p-3 rounded border" style="border-color: var(--border-color) !important;">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Buscar e Selecionar</label>
+                                    <input v-model="searchLocalQuery" type="text" class="form-control form-control-sm mb-2" placeholder="Digite para filtrar a lista abaixo...">
+                                    <select v-model="formShift.ID_LocalEvento" class="form-select fw-bold shadow-sm" required style="border-color: var(--border-color); color: var(--text-main);">
+                                        <option value="" disabled selected>Clique para selecionar o local</option>
+                                        <option v-for="l in filteredActiveLocations" :key="l.ID" :value="l.ID">{{ l.Nome }} {{!l.isEvent ? '(Fixo)' : ''}}</option>
+                                    </select>
+                                    <transition name="fade-row">
+                                        <div v-if="filteredActiveLocations.length === 0" class="small text-danger mt-1 fw-bold">Nenhum local encontrado.</div>
+                                    </transition>
+                                </div>
+
+                                <h6 class="fw-bold mb-3 text-gold border-bottom pb-2 mt-4" style="border-color: var(--border-color) !important;"><i data-lucide="clock" style="width: 16px; margin-right: 6px;"></i> Horário</h6>
+
+                                <div class="row g-2 mb-4">
+                                    <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase m-0 mb-1">Dia Início</label><input v-model="formShift.Data" type="date" class="form-control form-control-sm" required></div>
+                                    <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase m-0 mb-1">Hora Início</label><input v-model="formShift.Horario_Entrada" type="time" class="form-control form-control-sm" required></div>
+                                    <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase m-0 mb-1 mt-2">Dia Término</label><input v-model="formShift.Data_Fim" type="date" class="form-control form-control-sm" required></div>
+                                    <div class="col-6"><label class="form-label text-muted small fw-bold text-uppercase m-0 mb-1 mt-2">Hora Término</label><input v-model="formShift.Horario_Saida" type="time" class="form-control form-control-sm" required></div>
+                                </div>
+
+                                <h6 class="fw-bold mb-3 text-gold border-bottom pb-2 mt-4" style="border-color: var(--border-color) !important;"><i data-lucide="wallet" style="width: 16px; margin-right: 6px;"></i> Faturamento (Opcional)</h6>
+                                <div class="mb-2">
+                                    <label class="form-label text-muted small fw-bold text-uppercase">Data/Hora do Pagamento ao Agente</label>
+                                    <input v-model="formShift.DataHoraPagamento" type="datetime-local" class="form-control form-control-sm">
+                                </div>
+                            </div>
+
+                            <div class="col-12 col-lg-7 p-4 bg-body d-flex flex-column" style="max-height: 85vh;">
+                                <h6 class="fw-bold mb-3 text-gold border-bottom pb-2" style="border-color: var(--border-color) !important;"><i data-lucide="clipboard-list" style="width: 16px; margin-right: 6px;"></i> Instruções Operacionais</h6>
+                                <div class="row g-3 mb-4">
+                                    <div class="col-12 col-md-6"><label class="form-label text-muted small fw-bold text-uppercase">Uniforme Exigido</label><input v-model="formShift.Uniforme" type="text" class="form-control form-control-sm" placeholder="Ex: Fato Preto, Gravata..."></div>
+                                    <div class="col-12 col-md-6"><label class="form-label text-muted small fw-bold text-uppercase">Contato no Local</label><input v-model="formShift.Contato" type="text" class="form-control form-control-sm" placeholder="Nome e Telefone do Responsável"></div>
+                                    <div class="col-12"><label class="form-label text-muted small fw-bold text-uppercase">Escopo / Missão</label><textarea v-model="formShift.Escopo" class="form-control form-control-sm" rows="2" placeholder="Instruções específicas para o turno..."></textarea></div>
+                                </div>
+
+                                <h6 class="fw-bold mb-3 text-gold border-bottom pb-2 mt-4" style="border-color: var(--border-color) !important;"><i data-lucide="users" style="width: 16px; margin-right: 6px;"></i> Efetivo Alocado</h6>
+                                
+                                <div class="overflow-auto pe-2 flex-grow-1 mb-3" style="min-height: 150px; max-height: 300px;">
+                                    <transition-group name="list" tag="div">
+                                        <div v-for="(agente, index) in formShift.agentes" :key="index" class="d-flex flex-column flex-md-row gap-2 mb-3 bg-surface p-2 rounded border position-relative shadow-sm" style="border-color: var(--border-color) !important;">
+                                            <div class="flex-grow-1">
+                                                <select v-model="agente.ID_Funcionario" class="form-select form-select-sm border-0 bg-transparent" required>
+                                                    <option value="" disabled>Selecione um agente...</option>
+                                                    <option v-for="g in activeGuards" :key="g.ID" :value="g.ID">{{ g.Nome }}</option>
+                                                </select>
+                                            </div>
+                                            <div style="width: 1px; background: var(--border-color); margin: 5px 0;" class="d-none d-md-block"></div>
+                                            <div class="flex-grow-1">
+                                                <select v-model="agente.Funcao" @change="handleRoleChange($event, index)" class="form-select form-select-sm border-0 bg-transparent" required>
+                                                    <option value="" disabled>Atribuir Função...</option>
+                                                    <option v-for="f in funcoes" :key="f.ID" :value="f.Nome">{{ f.Nome }} {{f.Valor ? '- €'+f.Valor : ''}}</option>
+                                                    <option value="NEW_ROLE" class="text-gold fw-bold">+ Criar Nova Função</option>
+                                                </select>
+                                            </div>
+                                            <button v-if="formShift.agentes.length > 1 && !isEditingShift" type="button" @click="removeAgentRow(index)" class="btn btn-link text-danger p-1 px-2 btn-anim"><i data-lucide="trash-2" style="width: 16px;"></i></button>
+                                        </div>
+                                    </transition-group>
+                                </div>
+
+                                <button v-if="!isEditingShift" type="button" @click="addAgentRow" class="btn btn-sm btn-outline-secondary w-100 mb-4 fw-bold btn-anim" style="border-style: dashed;"><i data-lucide="plus" style="width: 14px;"></i> ADICIONAR MAIS UM AGENTE NESTE TURNO</button>
+
+                                <div class="mt-auto pt-3 text-end border-top" style="border-color: var(--border-color) !important;">
+                                    <button type="submit" class="btn btn-gold fw-bold px-5 py-3 shadow-sm btn-anim">CONFIRMAR ESCALA</button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</transition>
+
+<!-- Modal: Visão Operacional do Dia -->
+<transition name="modal-fade">
+    <div v-if="activeModal === 'dayShifts'" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); z-index: 1050;">
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content shadow-lg border-0 bg-body">
+                <div class="modal-header border-bottom bg-surface" style="border-color: var(--border-color) !important;">
+                    <h5 class="modal-title fw-bold font-heading d-flex align-items-center gap-2 text-gold">
+                        <i data-lucide="calendar-check" style="width: 22px;"></i>
+                        Operações do dia: <span class="text-main">{{ formatDateFull(selectedDayForModal) }}</span>
+                    </h5>
+                    <button type="button" class="btn-close" :class="{'btn-close-white': isDarkMode}" @click="closeModal"></button>
+                </div>
+                
+                <div class="modal-body p-4" style="background-color: var(--bg-body);">
+                    <transition name="fade-row">
+                        <div v-if="Object.keys(selectedDayShiftsGrouped).length === 0" class="text-center py-5 text-muted">
+                            <i data-lucide="shield-off" style="width: 48px; height: 48px; opacity: 0.3;" class="mb-3"></i>
+                            <p class="mb-0 fw-bold">Nenhuma operação ativa agendada para este dia.</p>
+                        </div>
+                    </transition>
+
+                    <transition-group name="card-list" tag="div" class="row g-4">
+                        <div v-for="(shiftsArray, localId) in selectedDayShiftsGrouped" :key="localId" class="col-12 col-lg-6">
+                            <div class="glass-panel p-0 rounded-3 overflow-hidden shadow-sm h-100 d-flex flex-column border bg-surface hover-lift" style="border-color: var(--border-color) !important;">
+                                
+                                <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="border-color: var(--border-color) !important; background-color: rgba(245, 158, 11, 0.03);">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="rounded-circle d-flex align-items-center justify-content-center text-gold bg-body border shadow-sm" style="width: 36px; height: 36px; border-color: var(--border-color) !important;">
+                                            <i data-lucide="map-pin" style="width: 14px;"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold text-main mb-0" style="font-size: 0.95rem;">{{ getLocationName(localId) }}</h6>
+                                            <small class="text-muted font-monospace" style="font-size: 0.65rem;">ID: {{ localId.substring(0,8) }}</small>
+                                        </div>
+                                    </div>
+                                    <button @click="generatePDFLocal(selectedDayForModal, localId, shiftsArray)" class="btn btn-sm btn-outline-danger fw-bold d-flex align-items-center gap-1 border-0 hover-bg-danger hover-text-white btn-anim" title="Gerar Ordem de Serviço em PDF">
+                                        <i data-lucide="file-down" style="width: 14px;"></i> PDF O.S.
+                                    </button>
+                                </div>
+                                
+                                <div class="p-0 flex-grow-1">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle m-0" style="color: var(--text-main); --bs-table-bg: transparent;">
+                                            <thead class="text-muted border-bottom" style="border-color: var(--border-color) !important; font-size: 0.7rem; background-color: var(--bg-body);">
+                                                <tr>
+                                                    <th class="ps-3 py-2 text-uppercase">Agente</th>
+                                                    <th class="py-2 text-uppercase">Função</th>
+                                                    <th class="py-2 text-uppercase">Horário</th>
+                                                    <th class="text-end pe-3 py-2 text-uppercase">Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <transition-group name="list" tag="tbody">
+                                                <tr v-for="shift in shiftsArray" :key="shift.ID_Escala" style="border-color: var(--border-color);">
+                                                    <td class="ps-3 fw-bold py-2" style="font-size: 0.8rem;">{{ getGuardName(shift.ID_Funcionario) }}</td>
+                                                    <td class="text-muted" style="font-size: 0.8rem;">{{ shift.Funcao || '--' }}</td>
+                                                    <td class="font-monospace text-warning fw-bold" style="font-size: 0.8rem;">{{ shift.Horario_Entrada }} - {{ shift.Horario_Saida }}</td>
+                                                    <td class="text-end pe-3">
+                                                        <button @click="editShift(shift)" class="btn btn-link text-muted p-1 m-0 hover-text-gold me-1 btn-anim" title="Editar"><i data-lucide="pencil" style="width: 14px;"></i></button>
+                                                        <button @click="changeShiftStatus(shift.ID_Escala, 'Cancelado')" class="btn btn-link text-danger p-1 m-0 btn-anim" title="Cancelar Turno"><i data-lucide="x-circle" style="width: 14px;"></i></button>
+                                                    </td>
+                                                </tr>
+                                            </transition-group>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </transition-group>
+                </div>
+                <div class="modal-footer border-top bg-surface" style="border-color: var(--border-color) !important;">
+                    <button type="button" class="btn btn-outline-secondary fw-bold btn-anim" @click="closeModal">FECHAR</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</transition>
+
+<!-- Sistema Profissional de Alertas e Confirmações -->
+<transition name="modal-fade">
+    <div v-if="confirmDialog.show" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 2000;">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content shadow-lg border-0" style="background-color: var(--bg-surface);">
+                <div class="modal-body text-center p-4">
+                    <div class="mb-3 d-flex justify-content-center">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center transition" :class="confirmDialog.isDanger ? 'bg-danger bg-opacity-10 text-danger' : 'bg-warning bg-opacity-10 text-warning'" style="width: 60px; height: 60px; animation: scale-in 0.3s ease;">
+                            <i :data-lucide="confirmDialog.isDanger ? 'alert-triangle' : 'help-circle'" style="width: 32px; height: 32px;"></i>
+                        </div>
+                    </div>
+                    <h5 class="fw-bold font-heading mb-2" style="color: var(--text-main);">{{ confirmDialog.title }}</h5>
+                    <p class="text-muted small mb-4">{{ confirmDialog.message }}</p>
+                    <div class="d-flex gap-2 w-100">
+                        <button type="button" class="btn btn-light text-dark fw-bold flex-grow-1 btn-anim" @click="closeConfirm">CANCELAR</button>
+                        <button type="button" class="btn fw-bold flex-grow-1 btn-anim" :class="confirmDialog.isDanger ? 'btn-danger' : 'btn-warning'" @click="executeConfirm">CONFIRMAR</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</transition>
+
+<transition name="modal-fade">
+    <div v-if="alertDialog.show" class="modal d-block" tabindex="-1" style="background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 2050;">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content shadow-lg border-0" style="background-color: var(--bg-surface);">
+                <div class="modal-body text-center p-4">
+                    <div class="mb-3 d-flex justify-content-center">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center transition" :class="alertDialog.isError ? 'bg-danger bg-opacity-10 text-danger' : 'bg-info bg-opacity-10 text-info'" style="width: 60px; height: 60px; animation: scale-in 0.3s ease;">
+                            <i :data-lucide="alertDialog.isError ? 'x-circle' : 'info'" style="width: 32px; height: 32px;"></i>
+                        </div>
+                    </div>
+                    <h5 class="fw-bold font-heading mb-2" style="color: var(--text-main);">{{ alertDialog.title }}</h5>
+                    <p class="text-muted small mb-4">{{ alertDialog.message }}</p>
+                    <button type="button" class="btn fw-bold w-100 btn-anim" :class="alertDialog.isError ? 'btn-danger' : 'btn-info text-white'" @click="closeAlert">ENTENDIDO</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</transition>
