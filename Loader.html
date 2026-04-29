@@ -1,23 +1,43 @@
-<div class="d-flex flex-column align-items-center justify-content-center h-100 w-100" style="background-color: var(--bg-body); z-index: 9999;">
-    <div v-if="isDarkMode" class="position-absolute top-50 start-50 translate-middle rounded-circle bg-warning opacity-10 blur-xl" style="width: 300px; height: 300px; filter: blur(80px); pointer-events: none;"></div>
-    
-    <div class="loader-container">
-        <div class="loading-ring"></div>
-        <div class="loading-ring inner"></div>
-        <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="shield-icon-loader text-gold">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
-            <path d="m9 12 2 2 4-4"/>
-        </svg>
-    </div>
-    
-    <h2 class="font-heading fw-bold text-main mb-2" style="letter-spacing: 1px;">RINCON <span class="text-gold">OPS</span></h2>
-    
-    <div class="progress-container shadow-sm">
-        <div class="progress-bar-fill" :style="{ width: loadingProgress + '%' }"></div>
-    </div>
-    
-    <div class="d-flex justify-content-between w-100 mt-2" style="max-width: 300px;">
-        <span class="text-gold small fw-bold text-uppercase" style="letter-spacing: 2px; font-size: 0.70rem;">{{ loadingMessage }}</span>
-        <span class="text-muted small fw-bold font-monospace">{{ Math.floor(loadingProgress) }}%</span>
+<div class="d-flex flex-column align-items-center justify-content-center vh-100 bg-body position-relative overflow-hidden">
+    <!-- Glow de Fundo Reduzido para Opacity 5 e Blur 120px -->
+    <div class="position-absolute top-50 start-50 translate-middle rounded-circle bg-warning opacity-5 blur-xl" style="width: 400px; height: 400px; pointer-events: none;"></div>
+
+    <div class="z-1 text-center" style="max-width: 300px;">
+        <!-- Logo Rincon Ampliada com Pulsação -->
+        <div class="mb-4 animate-pulse">
+            <img src="https://drive.google.com/thumbnail?id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf&sz=w400" 
+                 alt="Rincon Security Logo" 
+                 style="width: 140px; height: 140px; border-radius: 24px; object-fit: cover; box-shadow: 0 20px 40px rgba(0,0,0,0.4); border: 1px solid rgba(245, 158, 11, 0.2);">
+        </div>
+
+        <!-- Nome do App -->
+        <h2 class="fw-bold font-heading text-main mb-1" style="letter-spacing: -1px;">RINCON <span class="text-gold">SECURITY</span></h2>
+        <p class="text-muted small fw-bold text-uppercase mb-4" style="letter-spacing: 2px; font-size: 0.7rem;">{{ loadingMessage }}</p>
+
+        <!-- Barra de Progresso Tática -->
+        <div class="mx-auto position-relative" style="width: 220px; height: 6px; background: var(--border-color); border-radius: 10px; overflow: hidden;">
+            <div class="h-100 bg-gold" 
+                 :style="{ width: loadingProgress + '%' }"
+                 style="transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);">
+            </div>
+        </div>
+        
+        <!-- Contador de Porcentagem -->
+        <div class="mt-2 text-muted font-monospace" style="font-size: 0.65rem; opacity: 0.5;">
+            {{ Math.round(loadingProgress) }}% CONCLUÍDO
+        </div>
     </div>
 </div>
+
+<style>
+/* Animação de pulsação suave para a logo no carregamento */
+@keyframes pulse-custom {
+    0% { transform: scale(1); filter: brightness(1); }
+    50% { transform: scale(1.03); filter: brightness(1.15); }
+    100% { transform: scale(1); filter: brightness(1); }
+}
+
+.animate-pulse {
+    animation: pulse-custom 3s infinite ease-in-out;
+}
+</style>
