@@ -1,71 +1,50 @@
 /**
  * ============================================================================
- * BACKEND: RINCON OPS (Google Apps Script)
+ * BACKEND: RINCON SECURITY (Google Apps Script)
  * Arquitetura Modular & Motor Anti-Conflito O(1) + Sheets API V4
  * ============================================================================
  */
 
-// 1. INJEÇÃO DE DEPENDÊNCIAS (MODULARIZAÇÃO)
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
-// 2. ENTRY POINT (RENDERIZAÇÃO DO APP)
 function doGet(e) {
   return HtmlService.createTemplateFromFile('Index')
     .evaluate()
-    .setTitle('Rincon Ops - Command Center')
+    .setTitle('Rincon Security: Gestão de Escala')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-// ----------------------------------------------------------------------------
-// 3. CACHE E BANCO DE DADOS (GATEKEEPER DE ESTRUTURA)
-// ----------------------------------------------------------------------------
 let _dbCacheId = null;
 
-// 🔥 O GATEKEEPER: Garante que a estrutura física existe antes da API agir
 function buildDatabaseStructure() {
   const props = PropertiesService.getScriptProperties();
   let dbId = props.getProperty('RINCON_OPS_DB');
   let ss = null;
-  let isNewBuild = false;
 
-  // 1. Tenta abrir a planilha existente e valida se a aba principal está lá
   if (dbId) {
     try { 
       ss = SpreadsheetApp.openById(dbId); 
-      if (!ss.getSheetByName("LOCAIS_EVENTOS")) {
-        ss = null; // Arquivo corrompido ou na lixeira
-      }
-    } 
-    catch(e) { ss = null; }
+      if (!ss.getSheetByName("LOCAIS_EVENTOS")) ss = null;
+    } catch(e) { ss = null; }
   }
   
-  // 2. Constrói do zero se não existir ou estiver corrompido
   if (!ss) {
-    isNewBuild = true;
     ss = SpreadsheetApp.create("DB_Rincon_Ops");
     dbId = ss.getId();
     props.setProperty('RINCON_OPS_DB', dbId);
     
-    // Constrói todas as abas e cabeçalhos OBRIGATÓRIOS
-    setupSheet(ss, "LOCAIS_EVENTOS", ["ID", "Nome", "Tipo", "Data_Inicio", "Hora_Inicio", "Data_Fim", "Hora_Fim", "Status"]);
+    setupSheet(ss, "LOCAIS_EVENTOS", ["ID", "Nome", "Tipo", "Data_Inicio", "Hora_Inicio", "Data_Fim", "Hora_Fim", "Status", "EnderecoLink", "CEP", "Cidade", "Estado", "TipoFixoDuracao"]);
     setupSheet(ss, "FUNCIONARIOS", ["ID", "Nome", "Telefone", "Status"]);
-    setupSheet(ss, "FUNCOES", ["ID", "Nome"]);
-    setupSheet(ss, "ESCALAS", ["ID_Escala", "ID_Funcionario", "ID_LocalEvento", "Data", "Horario_Entrada", "Horario_Saida", "Status", "Funcao"]);
+    setupSheet(ss, "FUNCOES", ["ID", "Nome", "Valor", "Descricao"]);
+    setupSheet(ss, "ESCALAS", ["ID_Escala", "ID_Funcionario", "ID_LocalEvento", "Data", "Horario_Entrada", "Horario_Saida", "Status", "Funcao", "Data_Fim", "DataHoraPagamento", "Uniforme", "Escopo", "Contato"]);
     
-    // Limpa aba inútil padrão
     const page1 = ss.getSheetByName("Página1");
-    if (page1 && ss.getSheets().length > 1) {
-      ss.deleteSheet(page1);
-    }
+    if (page1 && ss.getSheets().length > 1) ss.deleteSheet(page1);
 
-    // Trava o servidor para forçar a gravação
     SpreadsheetApp.flush(); 
-    
-    // PAUSA DE 2 SEGUNDOS: Necessário para a replicação nos servidores do Google Drive
-    // Evita o erro "Unable to parse range" na Sheets API
     Utilities.sleep(2000); 
   }
   
@@ -83,13 +62,11 @@ function setupSheet(ss, sheetName, headers) {
   }
 }
 
-// Retorna apenas a ID (Otimizado)
 function getDBId() {
   if (_dbCacheId) return _dbCacheId;
   return buildDatabaseStructure(); 
 }
 
-// Retorna o objeto (Usado nas funções antigas)
 function getSheet(name) { 
   return SpreadsheetApp.openById(getDBId()).getSheetByName(name); 
 }
@@ -97,7 +74,7 @@ function getSheet(name) {
 function sheetToJSON(data) {
   if (!data || data.length <= 1) return [];
   const headers = data[0];
-  return data.slice(1).map(row => Object.fromEntries(headers.map((h, i) => [h, row[i]]))).filter(r => r[headers[0]] !== "");
+  return data.slice(1).map(row => Object.fromEntries(headers.map((h, i) => [h, row[i] !== undefined ? row[i] : ""]))).filter(r => r[headers[0]] !== "");
 }
 
 function parseDateTime(dateStr, timeStr) {
@@ -107,24 +84,17 @@ function parseDateTime(dateStr, timeStr) {
   return new Date(y, m - 1, d, hr, min);
 }
 
-// ----------------------------------------------------------------------------
-// 4. LÓGICA DE NEGÓCIO E APIs (OTIMIZADO COM SHEETS API V4)
-// ----------------------------------------------------------------------------
-
 function getDashboardData() {
   try {
     const cache = CacheService.getScriptCache();
     const cacheKey = 'dashboard_full_data';
     const cached = cache.get(cacheKey);
-    
     if (cached) return JSON.parse(cached);
 
-    // 🔥 Invoca o Gatekeeper ANTES de qualquer coisa
     const ssId = getDBId();
     
-    // BATCH GET VIA SHEETS API
     const response = Sheets.Spreadsheets.Values.batchGet(ssId, {
-      ranges: ['LOCAIS_EVENTOS!A:H', 'FUNCIONARIOS!A:D', 'ESCALAS!A:H', 'FUNCOES!A:B']
+      ranges: ['LOCAIS_EVENTOS!A:M', 'FUNCIONARIOS!A:D', 'ESCALAS!A:M', 'FUNCOES!A:D']
     });
 
     const locaisRaw = sheetToJSON(response.valueRanges[0].values || [["ID"]]);
@@ -132,9 +102,7 @@ function getDashboardData() {
     const escalasRaw = sheetToJSON(response.valueRanges[2].values || [["ID_Escala"]]);
     const funcoesRaw = sheetToJSON(response.valueRanges[3].values || [["ID"]]);
     
-    let funcoes = funcoesRaw.length > 0 ? funcoesRaw : [
-      {ID: '1', Nome: 'Vigilante'}, {ID: '2', Nome: 'Segurança Tático'}, {ID: '3', Nome: 'Chefe de Equipa'}
-    ];
+    let funcoes = funcoesRaw;
 
     const now = new Date();
     const locais = locaisRaw.map(local => {
@@ -167,11 +135,12 @@ function buildEscalasIndex(escalas) {
   return index;
 }
 
-function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endStr, ignoreId, escalasIndex) {
+function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, dateEndStr, endStr, ignoreId, escalasIndex) {
   const newStart = parseDateTime(dateStr, startStr);
-  let newEnd = parseDateTime(dateStr, endStr);
+  let newEnd = dateEndStr ? parseDateTime(dateEndStr, endStr) : parseDateTime(dateStr, endStr);
+  
   if (!newStart || !newEnd) throw new Error("Data ou horário inválido.");
-  if (newEnd <= newStart) newEnd.setDate(newEnd.getDate() + 1);
+  if (!dateEndStr && newEnd <= newStart) newEnd.setDate(newEnd.getDate() + 1);
 
   const funcionarioEscalas = escalasIndex[idFuncionario] || [];
   for (let esc of funcionarioEscalas) {
@@ -179,16 +148,15 @@ function validateConflictMemoryOptimized(idFuncionario, dateStr, startStr, endSt
     if (ignoreId && esc.ID_Escala === ignoreId) continue;
 
     let escStart = parseDateTime(esc.Data, esc.Horario_Entrada);
-    let escEnd = parseDateTime(esc.Data, esc.Horario_Saida);
-    if (escEnd <= escStart) escEnd.setDate(escEnd.getDate() + 1);
+    let escEnd = esc.Data_Fim ? parseDateTime(esc.Data_Fim, esc.Horario_Saida) : parseDateTime(esc.Data, esc.Horario_Saida);
+    if (!esc.Data_Fim && escEnd <= escStart) escEnd.setDate(escEnd.getDate() + 1);
 
     if (newStart < escEnd && newEnd > escStart) {
-      throw new Error(`O agente selecionado já possui uma escala sobreposta no dia ${dateStr}.`);
+      throw new Error(`Conflito: Agente já possui escala sobreposta.`);
     }
   }
 }
 
-// Retém uso do nativo para edições isoladas (mais simples de manter na linha exata)
 function updateOrAddRow(sheetName, idColIndex, id, newData) {
   const sheet = getSheet(sheetName);
   const data = sheet.getDataRange().getValues();
@@ -200,12 +168,12 @@ function updateOrAddRow(sheetName, idColIndex, id, newData) {
   else sheet.appendRow(newData); 
 }
 
-function saveFuncao(nome) {
+function saveFuncao(payload) {
   try {
-    const id = Utilities.getUuid();
-    getSheet("FUNCOES").appendRow([id, nome]);
+    const id = payload.ID || Utilities.getUuid();
+    updateOrAddRow("FUNCOES", 0, id, [id, payload.Nome, payload.Valor || '', payload.Descricao || '']);
     invalidateDashboardCache();
-    return { success: true, data: { ID: id, Nome: nome } };
+    return { success: true, data: { ID: id, Nome: payload.Nome, Valor: payload.Valor, Descricao: payload.Descricao } };
   } catch (e) { return { success: false, error: e.message }; }
 }
 
@@ -221,7 +189,11 @@ function saveFuncionario(payload) {
 function saveLocal(payload) {
   try {
     const id = payload.ID || Utilities.getUuid();
-    updateOrAddRow("LOCAIS_EVENTOS", 0, id, [id, payload.Nome, payload.Tipo, payload.Data_Inicio||'', payload.Hora_Inicio||'', payload.Data_Fim||'', payload.Hora_Fim||'', payload.Status || 'Ativo']);
+    const rowData = [
+      id, payload.Nome, payload.Tipo, payload.Data_Inicio||'', payload.Hora_Inicio||'', payload.Data_Fim||'', payload.Hora_Fim||'', payload.Status || 'Ativo',
+      payload.EnderecoLink || '', payload.CEP || '', payload.Cidade || '', payload.Estado || '', payload.TipoFixoDuracao || ''
+    ];
+    updateOrAddRow("LOCAIS_EVENTOS", 0, id, rowData);
     invalidateDashboardCache();
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
@@ -229,44 +201,35 @@ function saveLocal(payload) {
 
 function saveEscalaBatch(payloads) {
   try {
-    // 🔥 Garante a estrutura e pega o ID
     const ssId = getDBId();
-    
-    // API para leitura rápida do estado atual
-    const response = Sheets.Spreadsheets.Values.get(ssId, 'ESCALAS!A:H');
+    const response = Sheets.Spreadsheets.Values.get(ssId, 'ESCALAS!A:M');
     const escalasAtuais = sheetToJSON(response.values || [["ID_Escala"]]);
     const escalasIndex = buildEscalasIndex(escalasAtuais);
 
     for (let payload of payloads) {
-      validateConflictMemoryOptimized(payload.ID_Funcionario, payload.Data, payload.Horario_Entrada, payload.Horario_Saida, payload.ID_Escala, escalasIndex);
+      validateConflictMemoryOptimized(payload.ID_Funcionario, payload.Data, payload.Horario_Entrada, payload.Data_Fim, payload.Horario_Saida, payload.ID_Escala, escalasIndex);
     }
 
-    // BATCH UPDATE VIA SHEETS API
     let newRows = [];
     
     for (let payload of payloads) {
+      const rowData = [
+        payload.ID_Escala || Utilities.getUuid(), payload.ID_Funcionario, payload.ID_LocalEvento, 
+        payload.Data, payload.Horario_Entrada, payload.Horario_Saida, 
+        payload.Status || 'Confirmado', payload.Funcao || 'Vigilante',
+        payload.Data_Fim || '', payload.DataHoraPagamento || '', payload.Uniforme || '', payload.Escopo || '', payload.Contato || ''
+      ];
+
       if (!payload.ID_Escala) {
-        newRows.push([
-          Utilities.getUuid(), payload.ID_Funcionario, payload.ID_LocalEvento, 
-          payload.Data, payload.Horario_Entrada, payload.Horario_Saida, 
-          payload.Status || 'Confirmado', payload.Funcao || 'Vigilante'
-        ]);
+        newRows.push(rowData);
       } else {
-        updateOrAddRow("ESCALAS", 0, payload.ID_Escala, [
-          payload.ID_Escala, payload.ID_Funcionario, payload.ID_LocalEvento, 
-          payload.Data, payload.Horario_Entrada, payload.Horario_Saida, 
-          payload.Status || 'Confirmado', payload.Funcao || 'Vigilante'
-        ]);
+        updateOrAddRow("ESCALAS", 0, payload.ID_Escala, rowData);
       }
     }
 
-    // Insere registros em massa instantaneamente
     if (newRows.length > 0) {
       Sheets.Spreadsheets.Values.append(
-        { values: newRows }, 
-        ssId, 
-        'ESCALAS!A:H', 
-        { valueInputOption: 'USER_ENTERED' }
+        { values: newRows }, ssId, 'ESCALAS!A:M', { valueInputOption: 'USER_ENTERED' }
       );
     }
 
