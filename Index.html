@@ -3,47 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- ========================================== -->
-    <!-- 1. SEO & BRANDING (Rincon Security)        -->
-    <!-- ========================================== -->
-    <title>Rincon Ops - Command Center</title>
-    <meta name="description" content="Sistema completo de gestão operacional tática para a Rincon Security. Controle escalas, postos e efetivos em tempo real." />
-    <meta name="author" content="Rincon Security" />
-
-    <!-- Open Graph (Gera o Card no WhatsApp/Slack/Telegram) -->
-    <meta property="og:title" content="Rincon Ops - Command Center" />
-    <meta property="og:description" content="Gestão Operacional e Escalas Táticas - Rincon Security." />
-    <meta property="og:type" content="website" />
-    <!-- Link convertido para leitura direta de imagem do Google Drive -->
-    <meta property="og:image" content="https://drive.google.com/uc?export=view&id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf" />
-    <meta property="og:locale" content="pt_PT" />
-    <meta property="og:site_name" content="Rincon Security" />
-
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Rincon Ops - Command Center" />
-    <meta name="twitter:image" content="https://drive.google.com/uc?export=view&id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf" />
-
-    <!-- Favicon e Mobile App Icons (Adicionar à Tela Inicial) -->
-    <link rel="icon" type="image/png" href="https://drive.google.com/uc?export=view&id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf" />
-    <link rel="apple-touch-icon" sizes="180x180" href="https://drive.google.com/uc?export=view&id=1B0rerjd92_orghMcTAZAxb08yEAu9tVf" />
-
-    <!-- ========================================== -->
-    <!-- 2. PROTEÇÃO ANTI-FALHAS (Global Error)     -->
-    <!-- ========================================== -->
+    <title>Rincon Security: Gestão de Escala</title>
+    <meta name="description" content="Sistema completo de gestão operacional tática para a Rincon Security." />
+    
     <script>
-        // Captura erros críticos de carregamento antes do Vue.js iniciar
         window.addEventListener('error', function(event) {
             console.error("Erro Crítico Capturado:", event.message);
-            // Se a div principal não carregar, exibe um alerta de segurança
             window.onload = function() {
                 if(!document.getElementById('app') || document.getElementById('app').innerHTML.trim() === "") {
                     document.body.innerHTML = `
                         <div style="display:flex; height:100vh; width:100vw; background-color:#09090b; color:#fafafa; align-items:center; justify-content:center; font-family: sans-serif; text-align:center;">
                             <div>
                                 <h2 style="color:#f59e0b;">⚠️ Falha de Inicialização</h2>
-                                <p style="color:#a1a1aa; max-width: 400px; margin: 0 auto;">O Rincon Ops não conseguiu se conectar aos servidores. Por favor, verifique sua conexão ou recarregue a página.</p>
+                                <p style="color:#a1a1aa; max-width: 400px; margin: 0 auto;">O Rincon Security não conseguiu se conectar aos servidores. Por favor, recarregue a página.</p>
                                 <button onclick="window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background-color:#f59e0b; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">RECARREGAR SISTEMA</button>
                             </div>
                         </div>
@@ -53,55 +25,43 @@
         });
     </script>
 
-    <!-- ========================================== -->
-    <!-- 3. BIBLIOTECAS E ESTILOS                   -->
-    <!-- ========================================== -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;600&family=Outfit:wght@400;500;700;800&display=swap" rel="stylesheet">
 
-    <!-- Injeção dos Estilos Customizados do AppScript -->
     <?!= include('Styles'); ?>
 </head>
 <body>
 
 <div id="app" class="vh-100 overflow-hidden">
     <transition name="fade" mode="out-in">
-        
-        <!-- Tela de Carregamento -->
         <div v-if="isInitialLoading" key="loading" class="h-100 w-100">
             <?!= include('Loader'); ?>
         </div>
 
-        <!-- Aplicação Principal -->
         <div v-else key="main-app" class="d-flex h-100 w-100 position-relative">
             <div v-if="isLoading" id="globalLoader"></div>
             
-            <!-- Sidebar e Navegação -->
             <?!= include('Sidebar'); ?>
 
-            <!-- Área de Conteúdo Central -->
             <main class="flex-grow-1 position-relative overflow-auto content-wrapper pt-5 pt-lg-0">
-                <!-- Efeito visual de iluminação (Opcional - Dark Mode) -->
                 <div v-if="isDarkMode" class="position-fixed top-0 end-0 p-5 rounded-circle bg-warning opacity-10 blur-xl" style="width: 400px; height: 400px; filter: blur(100px); pointer-events: none;"></div>
                 
                 <div class="container-fluid p-4 p-lg-5 position-relative" style="z-index: 10;">
-                    <transition name="fade" mode="out-in">
-                        <!-- Módulos de Visão (Views) -->
+                    <transition name="view-fade" mode="out-in">
                         <div v-if="currentView === 'dashboard'" key="dashboard"><?!= include('ViewDashboard'); ?></div>
                         <div v-else-if="currentView === 'events'" key="events"><?!= include('ViewEvents'); ?></div>
                         <div v-else-if="currentView === 'guards'" key="guards"><?!= include('ViewGuards'); ?></div>
+                        <div v-else-if="currentView === 'roles'" key="roles"><?!= include('ViewRoles'); ?></div>
                         <div v-else-if="currentView === 'schedule'" key="schedule"><?!= include('ViewSchedule'); ?></div>
                     </transition>
                 </div>
             </main>
 
-            <!-- Modais do Sistema -->
             <?!= include('Modals'); ?>
         </div>
     </transition>
 </div>
 
-<!-- Scripts (Vue, FullCalendar, Lógica Customizada) -->
 <?!= include('Scripts'); ?>
 
 </body>
