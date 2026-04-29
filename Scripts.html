@@ -1,8 +1,6 @@
 <script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/locales-all.global.min.js"></script>
 <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
@@ -25,11 +23,17 @@
 
     createApp({
         setup() {
+            // LÓGICA DE MEMÓRIA DO TEMA: Carrega a preferência salva ou assume Dark como padrão
+            const savedTheme = localStorage.getItem('rincon_theme');
+            const isDarkMode = ref(savedTheme === null ? true : savedTheme === 'dark');
+            
+            // Aplica o tema imediatamente na inicialização para evitar o "flash" branco
+            document.documentElement.setAttribute('data-bs-theme', isDarkMode.value ? 'dark' : 'light');
+
             const isInitialLoading = ref(true);
             const loadingProgress = ref(0);
             const loadingMessage = ref('A Sincronizar Banco de Dados...');
             const isLoading = ref(false);
-            const isDarkMode = ref(true);
             const currentView = ref('dashboard');
             const eventSubView = ref('active'); 
             const guardSubView = ref('active'); 
@@ -37,7 +41,21 @@
             const activeModal = ref(null);
             const mobileMenuOpen = ref(false);
             const todayDate = new Date().toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' });
+            
+            const filterStartDate = ref('');
+            const filterEndDate = ref('');
+            const selectedDayForModal = ref('');
+
             const errorMsg = ref('');
+            const confirmDialog = ref({ show: false, title: '', message: '', action: null, isDanger: true });
+            const alertDialog = ref({ show: false, title: '', message: '', isError: false });
+
+            const confirmAction = (title, message, actionCb, isDanger = true) => { confirmDialog.value = { show: true, title, message, action: actionCb, isDanger }; };
+            const closeConfirm = () => { confirmDialog.value.show = false; confirmDialog.value.action = null; };
+            const executeConfirm = async () => { if (confirmDialog.value.action) { await confirmDialog.value.action(); } closeConfirm(); };
+
+            const showAlert = (title, message, isError = false) => { alertDialog.value = { show: true, title, message, isError }; };
+            const closeAlert = () => { alertDialog.value.show = false; };
 
             const guards = ref([]);
             const locations = ref([]);
@@ -57,17 +75,50 @@
                 return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
             };
 
-            const filteredLocations = computed(() => eventSubView.value === 'active' ? locations.value.filter(l => l.Status === 'Ativo' && !l.expired) : locations.value.filter(l => l.Status === 'Cancelado' || l.Status === 'Expirado' || l.expired));
+            const searchLocalQuery = ref('');
             const activeLocations = computed(() => locations.value.filter(l => l.Status === 'Ativo' && !l.expired));
+            const filteredActiveLocations = computed(() => {
+                if(!searchLocalQuery.value) return activeLocations.value;
+                const query = searchLocalQuery.value.toLowerCase();
+                return activeLocations.value.filter(l => l.Nome.toLowerCase().includes(query));
+            });
+
+            const filteredLocations = computed(() => eventSubView.value === 'active' ? locations.value.filter(l => l.Status === 'Ativo' && !l.expired) : locations.value.filter(l => l.Status === 'Cancelado' || l.Status === 'Expirado' || l.expired));
             const filteredGuards = computed(() => guardSubView.value === 'active' ? guards.value.filter(g => g.Status === 'Ativo') : guards.value.filter(g => g.Status === 'Inativo'));
             const activeGuards = computed(() => guards.value.filter(g => g.Status === 'Ativo'));
 
             const groupedShifts = computed(() => {
                 const todayIso = new Date().toISOString().split('T')[0];
-                let targetShifts = scheduleViewMode.value === 'grid' ? shifts.value.filter(s => s.Data >= todayIso && s.Status !== 'Cancelado') : shifts.value.filter(s => s.Data < todayIso || s.Status === 'Cancelado');
+                let targetShifts = shifts.value.filter(s => s.Status !== 'Cancelado');
+                
+                if (!filterStartDate.value && !filterEndDate.value && scheduleViewMode.value === 'grid') {
+                    targetShifts = targetShifts.filter(s => s.Data >= todayIso);
+                }
+                if (filterStartDate.value) {
+                    targetShifts = targetShifts.filter(s => s.Data >= filterStartDate.value);
+                }
+                if (filterEndDate.value) {
+                    targetShifts = targetShifts.filter(s => s.Data <= filterEndDate.value);
+                }
+
                 const groups = {};
                 const sorted = [...targetShifts].sort((a, b) => a.Data.localeCompare(b.Data));
-                sorted.forEach(s => { if(!groups[s.Data]) groups[s.Data] = []; groups[s.Data].push(s); });
+                sorted.forEach(s => { 
+                    if(!groups[s.Data]) groups[s.Data] = {}; 
+                    if(!groups[s.Data][s.ID_LocalEvento]) groups[s.Data][s.ID_LocalEvento] = [];
+                    groups[s.Data][s.ID_LocalEvento].push(s); 
+                });
+                return groups;
+            });
+
+            const selectedDayShiftsGrouped = computed(() => {
+                if(!selectedDayForModal.value) return {};
+                const dayShifts = shifts.value.filter(s => s.Data === selectedDayForModal.value && s.Status !== 'Cancelado');
+                const groups = {};
+                dayShifts.forEach(s => {
+                    if(!groups[s.ID_LocalEvento]) groups[s.ID_LocalEvento] = [];
+                    groups[s.ID_LocalEvento].push(s);
+                });
                 return groups;
             });
 
@@ -76,12 +127,59 @@
                 return shifts.value.filter(s => s.Data === today && s.Status !== 'Cancelado');
             });
 
+            const calCurrentDate = ref(new Date());
+            const calMonth = computed(() => calCurrentDate.value.getMonth());
+            const calYear = computed(() => calCurrentDate.value.getFullYear());
+            const calMonthName = computed(() => new Intl.DateTimeFormat('pt-PT', { month: 'long' }).format(calCurrentDate.value));
+
+            const nextMonth = () => { calCurrentDate.value = new Date(calYear.value, calMonth.value + 1, 1); };
+            const prevMonth = () => { calCurrentDate.value = new Date(calYear.value, calMonth.value - 1, 1); };
+            const goToToday = () => { calCurrentDate.value = new Date(); };
+            const calBlankDays = computed(() => new Date(calYear.value, calMonth.value, 1).getDay());
+
+            const calendarGrid = computed(() => {
+                const daysInMonth = new Date(calYear.value, calMonth.value + 1, 0).getDate();
+                const grid = [];
+                for(let i = 1; i <= daysInMonth; i++) {
+                    const dateIso = `${calYear.value}-${String(calMonth.value+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+                    const dayShifts = shifts.value.filter(s => s.Data === dateIso && s.Status !== 'Cancelado');
+                    
+                    const uniqueEventsMap = {};
+                    dayShifts.forEach(s => {
+                        const key = `${s.ID_LocalEvento}_${s.Horario_Entrada}`;
+                        if(!uniqueEventsMap[key]) {
+                            uniqueEventsMap[key] = { locId: s.ID_LocalEvento, start: s.Horario_Entrada, count: 1 };
+                        } else {
+                            uniqueEventsMap[key].count++;
+                        }
+                    });
+                    
+                    const uniqueEvents = Object.values(uniqueEventsMap).sort((a,b) => a.start.localeCompare(b.start));
+                    grid.push({ dayNumber: i, dateIso, totalShifts: dayShifts.length, uniqueEvents });
+                }
+                return grid;
+            });
+
+            const isToday = (dateIso) => { return dateIso === new Date().toISOString().split('T')[0]; };
+            
+            const openDayModal = (dateIso) => {
+                selectedDayForModal.value = dateIso;
+                activeModal.value = 'dayShifts';
+            };
+
             const formGuard = ref({ ID: null, Nome: '', Telefone: '', Status: 'Ativo' });
-            const formLocation = ref({ ID: null, Nome: '', isEvent: false, Data_Inicio: '', Hora_Inicio: '', Data_Fim: '', Hora_Fim: '', Status: 'Ativo' });
-            const formShift = ref({ ID_Escala: null, ID_LocalEvento: '', Data: '', Horario_Entrada: '', Horario_Saida: '', Status: 'Confirmado', syncTime: true, agentes: [{ ID_Funcionario: '', Funcao: '' }] });
+            const formRole = ref({ ID: null, Nome: '', Valor: '', Descricao: '' });
+            const formLocation = ref({ ID: null, Nome: '', EnderecoLink: '', CEP: '', Cidade: '', Estado: '', isEvent: false, TipoFixoDuracao: 'indeterminado', Data_Inicio: '', Hora_Inicio: '', Data_Fim: '', Hora_Fim: '', Status: 'Ativo' });
+            const formShift = ref({ ID_Escala: null, ID_LocalEvento: '', Data: '', Horario_Entrada: '', Data_Fim: '', Horario_Saida: '', DataHoraPagamento: '', Uniforme: '', Escopo: '', Contato: '', Status: 'Confirmado', agentes: [{ ID_Funcionario: '', Funcao: '' }] });
             const isEditingShift = computed(() => !!formShift.value.ID_Escala);
 
-            const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; document.documentElement.setAttribute('data-bs-theme', isDarkMode.value ? 'dark' : 'light'); };
+            const toggleTheme = () => { 
+                isDarkMode.value = !isDarkMode.value; 
+                const newTheme = isDarkMode.value ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-bs-theme', newTheme); 
+                localStorage.setItem('rincon_theme', newTheme);
+            };
+
             const toggleSidebar = () => mobileMenuOpen.value = !mobileMenuOpen.value;
             const switchView = (view) => { currentView.value = view; mobileMenuOpen.value = false; };
             
@@ -89,8 +187,12 @@
             const openModal = (modalName) => { 
                 errorMsg.value = ''; 
                 if(modalName === 'guard') formGuard.value = { ID: null, Nome: '', Telefone: '', Status: 'Ativo' };
-                if(modalName === 'location') formLocation.value = { ID: null, Nome: '', isEvent: false, Data_Inicio: '', Hora_Inicio: '', Data_Fim: '', Hora_Fim: '', Status: 'Ativo' };
-                if(modalName === 'shift') formShift.value = { ID_Escala: null, ID_LocalEvento: '', Data: '', Horario_Entrada: '', Horario_Saida: '', Status: 'Confirmado', syncTime: true, agentes: [{ ID_Funcionario: '', Funcao: '' }] };
+                if(modalName === 'role') formRole.value = { ID: null, Nome: '', Valor: '', Descricao: '' };
+                if(modalName === 'location') formLocation.value = { ID: null, Nome: '', EnderecoLink: '', CEP: '', Cidade: '', Estado: '', isEvent: false, TipoFixoDuracao: 'indeterminado', Data_Inicio: '', Hora_Inicio: '', Data_Fim: '', Hora_Fim: '', Status: 'Ativo' };
+                if(modalName === 'shift') {
+                    searchLocalQuery.value = '';
+                    formShift.value = { ID_Escala: null, ID_LocalEvento: '', Data: '', Horario_Entrada: '', Data_Fim: '', Horario_Saida: '', DataHoraPagamento: '', Uniforme: '', Escopo: '', Contato: '', Status: 'Confirmado', agentes: [{ ID_Funcionario: '', Funcao: '' }] };
+                }
                 activeModal.value = modalName; 
             };
             
@@ -108,112 +210,151 @@
                 try {
                     const data = await runServer('getDashboardData');
                     if(data) { guards.value = data.funcionarios || []; locations.value = data.locais || []; shifts.value = data.escalas || []; funcoes.value = data.funcoes || []; }
-                } catch(e) { alert("Erro de Conexão: " + e.message); }
+                } catch(e) { showAlert("Falha de Conexão", e.message, true); }
             };
 
             const addAgentRow = () => { formShift.value.agentes.push({ ID_Funcionario: '', Funcao: '' }); };
             const removeAgentRow = (idx) => { formShift.value.agentes.splice(idx, 1); };
 
-            const handleRoleChange = async (event, index) => {
+            const handleRoleChange = (event, index) => {
                 if (event.target.value === 'NEW_ROLE') {
-                    const newRole = prompt("Digite o nome da nova função:");
-                    if (newRole && newRole.trim() !== '') {
-                        isLoading.value = true;
-                        try {
-                            const res = await runServer('saveFuncao', newRole.trim());
-                            funcoes.value.push(res.data);
-                            formShift.value.agentes[index].Funcao = res.data.Nome;
-                        } catch(e) { alert("Erro."); formShift.value.agentes[index].Funcao = ''; }
-                        finally { isLoading.value = false; }
-                    } else { formShift.value.agentes[index].Funcao = ''; }
+                    formShift.value.agentes[index].Funcao = ''; 
+                    openModal('role'); 
                 }
             };
-
-            watch([() => formShift.value.ID_LocalEvento, () => formShift.value.syncTime], ([newLocId, sync]) => {
-                if(sync && newLocId) {
-                    const loc = locations.value.find(l => l.ID === newLocId);
-                    if(loc && loc.Tipo === 'Evento') {
-                        formShift.value.Data = loc.Data_Inicio;
-                        formShift.value.Horario_Entrada = loc.Hora_Inicio;
-                        formShift.value.Horario_Saida = loc.Hora_Fim;
-                    }
-                }
-            });
 
             const saveShift = async () => {
                 isLoading.value = true; errorMsg.value = '';
                 try {
                     const payloads = formShift.value.agentes.map(ag => ({
-                        ID_Escala: formShift.value.ID_Escala, ID_LocalEvento: formShift.value.ID_LocalEvento, Data: formShift.value.Data, Horario_Entrada: formShift.value.Horario_Entrada, Horario_Saida: formShift.value.Horario_Saida, ID_Funcionario: ag.ID_Funcionario, Funcao: ag.Funcao, Status: formShift.value.Status
+                        ID_Escala: formShift.value.ID_Escala, ID_LocalEvento: formShift.value.ID_LocalEvento, 
+                        Data: formShift.value.Data, Horario_Entrada: formShift.value.Horario_Entrada, 
+                        Data_Fim: formShift.value.Data_Fim, Horario_Saida: formShift.value.Horario_Saida, 
+                        DataHoraPagamento: formShift.value.DataHoraPagamento, Uniforme: formShift.value.Uniforme, 
+                        Escopo: formShift.value.Escopo, Contato: formShift.value.Contato,
+                        ID_Funcionario: ag.ID_Funcionario, Funcao: ag.Funcao, Status: formShift.value.Status
                     }));
                     await runServer('saveEscalaBatch', payloads);
                     closeModal(); await loadData();
-                    if(scheduleViewMode.value === 'calendar') initCalendar();
                 } catch(e) { errorMsg.value = e.message; } finally { isLoading.value = false; }
             };
 
-            const saveGuard = async () => { isLoading.value = true; try { await runServer('saveFuncionario', formGuard.value); closeModal(); await loadData(); } catch(e) { alert(e.message); } finally { isLoading.value = false; } };
-            const saveLocation = async () => { isLoading.value = true; try { await runServer('saveLocal', { ...formLocation.value, Tipo: formLocation.value.isEvent ? 'Evento' : 'Fixo' }); closeModal(); await loadData(); } catch(e) { alert(e.message); } finally { isLoading.value = false; } };
+            const saveGuard = async () => { isLoading.value = true; try { await runServer('saveFuncionario', formGuard.value); closeModal(); await loadData(); } catch(e) { showAlert("Falha ao Salvar", e.message, true); } finally { isLoading.value = false; } };
+            const saveRole = async () => { isLoading.value = true; try { await runServer('saveFuncao', formRole.value); closeModal(); await loadData(); } catch(e) { showAlert("Falha ao Salvar", e.message, true); } finally { isLoading.value = false; } };
+            const saveLocation = async () => { isLoading.value = true; try { await runServer('saveLocal', { ...formLocation.value, Tipo: formLocation.value.isEvent ? 'Evento' : 'Fixo' }); closeModal(); await loadData(); } catch(e) { showAlert("Falha ao Salvar", e.message, true); } finally { isLoading.value = false; } };
             
             const editLocation = (loc) => { formLocation.value = { ...loc, isEvent: loc.Tipo === 'Evento' }; activeModal.value = 'location'; };
             const editGuard = (g) => { formGuard.value = { ...g }; activeModal.value = 'guard'; };
-            const editShift = (shift) => { formShift.value = { ID_Escala: shift.ID_Escala, ID_LocalEvento: shift.ID_LocalEvento, Data: shift.Data, Horario_Entrada: shift.Horario_Entrada, Horario_Saida: shift.Horario_Saida, Status: shift.Status, syncTime: false, agentes: [{ ID_Funcionario: shift.ID_Funcionario, Funcao: shift.Funcao }] }; activeModal.value = 'shift'; };
+            const editRole = (f) => { formRole.value = { ...f }; activeModal.value = 'role'; };
             
-            const changeLocationStatus = async (id, s) => { if(confirm("Deseja cancelar?")){ isLoading.value = true; try{ await runServer('saveLocal', {...locations.value.find(l => l.ID === id), Status: s}); await loadData(); } catch(e){} finally{isLoading.value=false;} }};
-            const changeGuardStatus = async (id, s) => { isLoading.value = true; try{ await runServer('saveFuncionario', {...guards.value.find(g => g.ID === id), Status: s}); await loadData(); } catch(e){} finally{isLoading.value=false;} };
-            const changeShiftStatus = async (id, s) => { if(confirm("Deseja cancelar este turno?")){ isLoading.value = true; try{ await runServer('saveEscalaBatch', [{...shifts.value.find(x => x.ID_Escala === id), Status: s}]); await loadData(); if(scheduleViewMode.value === 'calendar') initCalendar(); } catch(e){} finally{isLoading.value=false;} }};
-            const deleteRecord = async (sheet, id) => { if(confirm("A exclusão não pode ser desfeita. Continuar?")){ isLoading.value = true; try{ await runServer('deleteRow', sheet, id); await loadData(); } catch(e){} finally{isLoading.value=false;} }};
+            const editShift = (shift) => { 
+                searchLocalQuery.value = '';
+                formShift.value = { 
+                    ID_Escala: shift.ID_Escala, ID_LocalEvento: shift.ID_LocalEvento, 
+                    Data: shift.Data, Horario_Entrada: shift.Horario_Entrada, 
+                    Data_Fim: shift.Data_Fim || '', Horario_Saida: shift.Horario_Saida, 
+                    DataHoraPagamento: shift.DataHoraPagamento || '', Uniforme: shift.Uniforme || '', 
+                    Escopo: shift.Escopo || '', Contato: shift.Contato || '',
+                    Status: shift.Status, agentes: [{ ID_Funcionario: shift.ID_Funcionario, Funcao: shift.Funcao }] 
+                }; 
+                activeModal.value = 'shift'; 
+            };
+            
+            const changeLocationStatus = (id, s) => { confirmAction("Arquivar Local", "Deseja cancelar operações aqui?", async () => { isLoading.value = true; try{ await runServer('saveLocal', {...locations.value.find(l => l.ID === id), Status: s}); await loadData(); } catch(e){} finally{isLoading.value=false;} }, false); };
+            const changeGuardStatus = (id, s) => { confirmAction("Mudar Status", `Mudar agente para ${s}?`, async () => { isLoading.value = true; try{ await runServer('saveFuncionario', {...guards.value.find(g => g.ID === id), Status: s}); await loadData(); } catch(e){} finally{isLoading.value=false;} }, s==='Inativo'); };
+            const changeShiftStatus = (id, s) => { confirmAction("Cancelar Turno", "Remover este turno?", async () => { isLoading.value = true; try{ await runServer('saveEscalaBatch', [{...shifts.value.find(x => x.ID_Escala === id), Status: s}]); await loadData(); } catch(e){} finally{isLoading.value=false;} }, true); };
+            const deleteRecord = (sheet, id) => { confirmAction("Excluir", "Esta ação apagará o registro do Banco de Dados. Continuar?", async () => { isLoading.value = true; try{ await runServer('deleteRow', sheet, id); await loadData(); } catch(e){} finally{isLoading.value=false;} }, true); };
 
-            const generatePDFDay = (dateStr, shiftsArray) => {
+            const generatePDFLocal = (dateStr, localId, shiftsArray) => {
                 const doc = new jsPDF();
-                doc.setFillColor(40, 40, 43); doc.rect(0, 0, 210, 25, 'F');
-                doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RINCON OPS", 14, 16);
-                doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("ESCALA TÁTICA", 155, 16);
-                doc.setTextColor(40, 40, 43); doc.setFontSize(14); doc.text(`Data Base: ${formatDateFull(dateStr)}`, 14, 40);
-                const tableData = shiftsArray.map(s => [ getLocationName(s.ID_LocalEvento), getGuardName(s.ID_Funcionario), s.Funcao || 'Vigilante', `${s.Horario_Entrada} as ${s.Horario_Saida}` ]);
-                doc.autoTable({ startY: 48, head: [['Local / Evento', 'Agente', 'Função', 'Turno']], body: tableData, theme: 'grid', headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0] }, styles: { fontSize: 9 } });
-                doc.save(`escala_${dateStr}.pdf`);
+                const localName = getLocationName(localId);
+                
+                doc.setFillColor(40, 40, 43); doc.rect(0, 0, 210, 30, 'F');
+                doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.text("RINCON SECURITY", 14, 18);
+                doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("ORDEM DE SERVIÇO TÁTICA", 135, 18);
+                
+                doc.setTextColor(40, 40, 43); doc.setFontSize(14); doc.text(`Operação: ${localName}`, 14, 45);
+                doc.setFontSize(11); doc.setTextColor(100, 100, 100); doc.text(`Data Base: ${formatDateFull(dateStr)}`, 14, 52);
+
+                const s0 = shiftsArray[0];
+                doc.setFontSize(10); doc.setTextColor(40, 40, 43);
+                doc.text(`Uniforme Exigido: ${s0.Uniforme || 'Padrão'}`, 14, 62);
+                doc.text(`Contato no Local: ${s0.Contato || 'N/A'}`, 14, 68);
+                if(s0.Escopo) doc.text(`Escopo / Missão: ${s0.Escopo}`, 14, 74);
+
+                const tableY = s0.Escopo ? 84 : 78;
+                const tableData = shiftsArray.map(s => [ getGuardName(s.ID_Funcionario), s.Funcao || 'Vigilante', `${s.Horario_Entrada} às ${s.Horario_Saida}` ]);
+
+                doc.autoTable({
+                    startY: tableY,
+                    head: [['Agente Alocado', 'Função / Cargo', 'Horário do Turno']],
+                    body: tableData,
+                    theme: 'grid',
+                    headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0], fontStyle: 'bold' },
+                    styles: { fontSize: 9 }
+                });
+
+                const safeLocalName = localName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+                doc.save(`${safeLocalName}_${dateStr}.pdf`);
             };
 
             const generatePDFAll = () => {
                 const doc = new jsPDF();
                 doc.setFillColor(40, 40, 43); doc.rect(0, 0, 210, 25, 'F');
-                doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RINCON OPS", 14, 16);
-                doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("RELATÓRIO GERAL", 155, 16);
+                doc.setTextColor(245, 158, 11); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text("RINCON SECURITY", 14, 16);
+                doc.setTextColor(255, 255, 255); doc.setFontSize(10); doc.text("GESTÃO DE ESCALA", 145, 16);
                 let y = 35;
+                let hasData = false;
+
                 for (let date in groupedShifts.value) {
-                    if(y > 250) { doc.addPage(); y = 20; }
-                    doc.setTextColor(40, 40, 43); doc.setFontSize(12); doc.text(`Dia: ${formatDateFull(date)}`, 14, y);
-                    const tableData = groupedShifts.value[date].map(s => [ getLocationName(s.ID_LocalEvento), getGuardName(s.ID_Funcionario), s.Funcao || '-', `${s.Horario_Entrada}-${s.Horario_Saida}` ]);
-                    doc.autoTable({ startY: y + 5, head: [['Local', 'Agente', 'Função', 'Horário']], body: tableData, theme: 'grid', headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0] }, styles: { fontSize: 8 }, margin:{bottom: 15} });
-                    y = doc.lastAutoTable.finalY + 15;
+                    for (let localId in groupedShifts.value[date]) {
+                        hasData = true;
+                        if(y > 250) { doc.addPage(); y = 20; }
+                        const localName = getLocationName(localId);
+                        doc.setTextColor(40, 40, 43); doc.setFontSize(12); doc.text(`${formatDateFull(date)} - ${localName}`, 14, y);
+
+                        const shiftsArray = groupedShifts.value[date][localId];
+                        const tableData = shiftsArray.map(s => [ getGuardName(s.ID_Funcionario), s.Funcao || '-', `${s.Horario_Entrada} às ${s.Horario_Saida}` ]);
+
+                        doc.autoTable({ startY: y + 5, head: [['Agente', 'Função', 'Horário']], body: tableData, theme: 'grid', headStyles: { fillColor: [245, 158, 11], textColor: [0, 0, 0] }, styles: { fontSize: 8 }, margin:{bottom: 15} });
+                        y = doc.lastAutoTable.finalY + 15;
+                    }
                 }
-                doc.save(`todas_escalas.pdf`);
+
+                if(!hasData) { doc.setTextColor(100, 100, 100); doc.setFontSize(12); doc.text("Nenhuma escala encontrada no filtro.", 14, y); }
+                let pdfName = filterStartDate.value ? `escalas_filtradas.pdf` : `todas_escalas.pdf`;
+                doc.save(pdfName);
             };
 
-            let calendarInstance = null;
-            const initCalendar = () => {
-                const el = document.getElementById('calendar'); 
-                if(!el) return; 
-                const events = shifts.value.filter(s => s.Status !== 'Cancelado').map(s => {
-                    const dtStart = new Date(`${s.Data}T${s.Horario_Entrada}:00`); let dtEnd = new Date(`${s.Data}T${s.Horario_Saida}:00`);
-                    if(dtEnd <= dtStart) dtEnd.setDate(dtEnd.getDate() + 1);
-                    return { id: s.ID_Escala, title: `${getGuardName(s.ID_Funcionario)} @ ${getLocationName(s.ID_LocalEvento)}`, start: dtStart.toISOString(), end: dtEnd.toISOString(), backgroundColor: 'var(--rincon-gold)', borderColor: 'transparent', textColor: 'black' };
-                });
-                if (calendarInstance) {
-                    calendarInstance.batchRendering(() => { calendarInstance.removeAllEvents(); calendarInstance.addEventSource(events); });
-                } else {
-                    calendarInstance = new FullCalendar.Calendar(el, { initialView: 'dayGridMonth', locale: 'pt-br', headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek' }, events: events });
-                    calendarInstance.render();
+            const generateExcelAll = () => {
+                let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+                csvContent += "Data Escala;Nome do Local;Agente Alocado;Função Tática;Hora Entrada;Hora Saida\r\n";
+                
+                let hasData = false;
+                for (let date in groupedShifts.value) {
+                    for (let localId in groupedShifts.value[date]) {
+                        const localName = getLocationName(localId);
+                        const shiftsArray = groupedShifts.value[date][localId];
+                        
+                        shiftsArray.forEach(s => {
+                            hasData = true;
+                            const agente = getGuardName(s.ID_Funcionario);
+                            const funcao = s.Funcao || 'Vigilante';
+                            csvContent += `${date};${localName};${agente};${funcao};${s.Horario_Entrada};${s.Horario_Saida}\r\n`;
+                        });
+                    }
                 }
-            };
 
-            watch([currentView, scheduleViewMode], async () => { 
-                if(currentView.value === 'schedule' && scheduleViewMode.value === 'calendar') { 
-                    await nextTick(); initCalendar(); 
-                    requestAnimationFrame(() => { if (calendarInstance) calendarInstance.updateSize(); });
-                } 
-            });
+                if(!hasData) return showAlert("Filtro Vazio", "Não há dados para gerar a planilha neste período.", true);
+
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", filterStartDate.value ? `escalas_${filterStartDate.value}_a_${filterEndDate.value||filterStartDate.value}.csv` : "todas_escalas.csv");
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            };
             
             onMounted(() => { 
                 let lucideRafId = null;
@@ -248,12 +389,15 @@
 
             return {
                 isInitialLoading, loadingProgress, loadingMessage, isLoading, isDarkMode, currentView, scheduleViewMode, eventSubView, guardSubView, activeModal, mobileMenuOpen, todayDate, errorMsg, getInitials,
-                filteredLocations, activeLocations, filteredGuards, activeGuards, groupedShifts, shiftsToday, guards, locations, shifts, funcoes,
-                formGuard, formLocation, formShift, isEditingShift,
+                filteredLocations, activeLocations, filteredActiveLocations, searchLocalQuery, filteredGuards, activeGuards, groupedShifts, shiftsToday, guards, locations, shifts, funcoes,
+                formGuard, formRole, formLocation, formShift, isEditingShift, 
+                filterStartDate, filterEndDate, selectedDayForModal, selectedDayShiftsGrouped,
+                calMonthName, calYear, calBlankDays, calendarGrid, nextMonth, prevMonth, goToToday, isToday, openDayModal,
+                confirmDialog, closeConfirm, executeConfirm, alertDialog, closeAlert,
                 toggleTheme, toggleSidebar, switchView, openModal, closeModal, formatDateFull, addAgentRow, removeAgentRow, handleRoleChange,
-                getGuardName, getLocationName, saveGuard, saveLocation, saveShift, deleteRecord,
-                editLocation, changeLocationStatus, editGuard, changeGuardStatus, editShift, changeShiftStatus,
-                generatePDFDay, generatePDFAll
+                getGuardName, getLocationName, saveGuard, saveRole, saveLocation, saveShift, deleteRecord,
+                editLocation, changeLocationStatus, editGuard, editRole, changeGuardStatus, editShift, changeShiftStatus,
+                generatePDFLocal, generatePDFAll, generateExcelAll
             };
         }
     }).mount('#app');
