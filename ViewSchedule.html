@@ -1,68 +1,156 @@
 <div>
     <div class="d-flex flex-column flex-md-row justify-content-between align-items-end mb-4 border-bottom pb-3" style="border-color: var(--border-color) !important;">
         <div><h2 class="display-6 fw-bold font-heading mb-0" style="color: var(--text-main);">Escalas Táticas</h2></div>
-        <div class="d-flex gap-3 align-items-center mt-3 mt-md-0">
-            <button @click="generatePDFAll" class="btn btn-outline-secondary btn-sm d-none d-md-flex align-items-center gap-2" style="color: var(--text-main); border-color: var(--border-color);" type="button"><i data-lucide="file-down" style="width: 14px;"></i> Exportar Todas</button>
-            <div class="sub-nav-tabs">
-                <button @click="scheduleViewMode = 'grid'" :class="['sub-nav-btn', { active: scheduleViewMode === 'grid' }]">Próximos</button>
-                <button @click="scheduleViewMode = 'history'" :class="['sub-nav-btn', { active: scheduleViewMode === 'history' }]">Histórico</button>
-                <button @click="scheduleViewMode = 'calendar'" :class="['sub-nav-btn', { active: scheduleViewMode === 'calendar' }]">Calendário</button>
+        
+        <div class="d-flex align-items-center gap-3 mt-3 mt-md-0 flex-wrap justify-content-end">
+            
+            <div class="d-flex align-items-center bg-surface border rounded shadow-sm overflow-hidden transition" style="border-color: var(--border-color) !important;">
+                <span class="px-2 text-muted bg-body border-end d-flex align-items-center" style="border-color: var(--border-color) !important;" title="Filtrar Período"><i data-lucide="calendar-search" style="width: 14px;"></i></span>
+                <input type="date" v-model="filterStartDate" class="form-control form-control-sm border-0 fw-bold text-muted bg-transparent shadow-none" style="width: 120px; font-size: 0.8rem;">
+                <span class="px-1 text-muted fw-bold" style="font-size: 0.8rem;">até</span>
+                <input type="date" v-model="filterEndDate" class="form-control form-control-sm border-0 fw-bold text-muted bg-transparent shadow-none" style="width: 120px; font-size: 0.8rem;">
+                <button v-if="filterStartDate || filterEndDate" @click="filterStartDate = ''; filterEndDate = ''" class="btn btn-sm btn-link text-danger p-1 px-2 border-start hover-bg-body btn-anim" style="border-radius: 0; border-color: var(--border-color) !important;" title="Limpar Filtro"><i data-lucide="x" style="width: 14px;"></i></button>
             </div>
-            <button @click="openModal('shift')" class="btn btn-gold fw-bold d-flex align-items-center gap-2" type="button"><i data-lucide="plus" style="width: 16px;"></i> ALOCAR</button>
+
+            <div class="btn-group shadow-sm">
+                <button @click="generateExcelAll" class="btn btn-sm btn-success fw-bold d-flex align-items-center justify-content-center px-3 hover-opacity btn-anim" title="Exportar para Excel" style="background-color: #107c41; border-color: #107c41;">
+                    <i data-lucide="file-spreadsheet" style="width: 16px;"></i>
+                </button>
+                <button @click="generatePDFAll" class="btn btn-sm btn-danger fw-bold d-flex align-items-center justify-content-center px-3 hover-opacity btn-anim" title="Exportar para PDF" style="background-color: #dc2626; border-color: #dc2626;">
+                    <i data-lucide="file-text" style="width: 16px;"></i>
+                </button>
+            </div>
+
+            <div class="sub-nav-tabs shadow-sm">
+                <button @click="scheduleViewMode = 'grid'" :class="['sub-nav-btn btn-anim', { active: scheduleViewMode === 'grid' }]"><i data-lucide="layout-grid" style="width: 14px; margin-right: 4px;"></i> Grade</button>
+                <button @click="scheduleViewMode = 'calendar'" :class="['sub-nav-btn btn-anim', { active: scheduleViewMode === 'calendar' }]"><i data-lucide="calendar-days" style="width: 14px; margin-right: 4px;"></i> Calendário</button>
+            </div>
+
+            <button @click="openModal('shift')" class="btn btn-sm btn-gold fw-bold d-flex align-items-center gap-2 shadow-sm btn-anim" type="button"><i data-lucide="plus" style="width: 16px;"></i> ALOCAR</button>
         </div>
     </div>
 
-    <div v-show="scheduleViewMode === 'grid' || scheduleViewMode === 'history'" class="glass-panel p-4 rounded-3 overflow-auto" style="max-height: 75vh;">
-        <div v-if="Object.keys(groupedShifts).length === 0" class="text-center py-5 text-muted">
-            <i data-lucide="calendar-x" style="width: 48px; height: 48px; opacity: 0.5;" class="mb-3"></i>
-            <h5>Nenhuma escala encontrada.</h5>
-        </div>
+    <!-- Container de Transição Suave entre Calendário e Grade -->
+    <transition name="view-fade" mode="out-in">
         
-        <div v-for="(shiftsGroup, date) in groupedShifts" :key="date" class="mb-5">
-            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-4 sticky-top bg-body z-1" style="border-color: var(--border-color) !important;">
-                <h5 class="fw-bold text-gold text-capitalize m-0"><i data-lucide="calendar-days" style="width: 18px; margin-right: 8px;"></i> {{ formatDateFull(date) }}</h5>
-                <button @click="generatePDFDay(date, shiftsGroup)" class="btn btn-sm btn-link text-muted p-0 text-decoration-none hover-text-gold d-flex align-items-center gap-1" type="button"><i data-lucide="download" style="width: 14px;"></i> PDF Dia</button>
+        <!-- VISÃO CALENDÁRIO COM ALTO CONTRASTE -->
+        <div v-if="scheduleViewMode === 'calendar'" key="calView" class="glass-panel p-4 rounded-3 shadow-sm">
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="fw-bold font-heading m-0 text-gold text-uppercase d-flex align-items-center gap-2">
+                    <i data-lucide="calendar" style="width: 24px;"></i> {{ calMonthName }} {{ calYear }}
+                </h4>
+                <div class="btn-group shadow-sm">
+                    <button @click="prevMonth" class="btn btn-sm btn-outline-secondary border fw-bold btn-anim" style="border-color: var(--border-color) !important;"><i data-lucide="chevron-left" style="width: 16px;"></i> ANT</button>
+                    <button @click="goToToday" class="btn btn-sm btn-outline-secondary border fw-bold btn-anim" style="border-color: var(--border-color) !important;">HOJE</button>
+                    <button @click="nextMonth" class="btn btn-sm btn-outline-secondary border fw-bold btn-anim" style="border-color: var(--border-color) !important;">PRÓX <i data-lucide="chevron-right" style="width: 16px;"></i></button>
+                </div>
             </div>
 
-            <div class="row g-4">
-                <transition-group name="list">
-                    <div v-for="shift in shiftsGroup" :key="shift.ID_Escala" class="col-12 col-md-6 col-xl-4">
-                        <div class="card-custom p-4 rounded-3 position-relative h-100 d-flex flex-column">
-                            <div class="dropdown position-absolute top-0 end-0 m-2">
-                                <button class="btn btn-sm btn-link text-muted p-0 border-0 dropdown-toggle" data-bs-toggle="dropdown" type="button"><i data-lucide="more-vertical" style="width: 16px; pointer-events: none;"></i></button>
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="background-color: var(--bg-surface); border-color: var(--border-color);">
-                                    <li><a class="dropdown-item" href="#" @click.prevent="editShift(shift)"><i data-lucide="pencil" style="width: 14px; margin-right:8px;"></i> Editar</a></li>
-                                    <li v-if="shift.Status !== 'Cancelado'"><a class="dropdown-item text-danger" href="#" @click.prevent="changeShiftStatus(shift.ID_Escala, 'Cancelado')"><i data-lucide="ban" style="width: 14px; margin-right:8px;"></i> Cancelar Turno</a></li>
-                                </ul>
-                            </div>
+            <div class="rounded overflow-hidden shadow-sm border" style="border-color: var(--border-color) !important;">
+                <!-- NOVO WRAPPER COM ALTO CONTRASTE (Do Styles.html) -->
+                <div class="calendar-grid-wrapper">
+                    
+                    <div v-for="d in ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb']" :key="d" class="bg-surface text-center py-2 fw-bold small text-muted text-uppercase" style="font-size: 0.75rem;">{{ d }}</div>
+                    
+                    <div v-for="b in calBlankDays" :key="'blank-'+b" class="bg-surface opacity-50" style="min-height: 120px;"></div>
+                    
+                    <div v-for="day in calendarGrid" :key="day.dateIso" @click="openDayModal(day.dateIso)" class="calendar-day-cell p-2 d-flex flex-column position-relative" style="min-height: 120px; cursor: pointer;">
+                        
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="small fw-bold" :class="isToday(day.dateIso) ? 'bg-gold text-dark rounded-circle d-flex align-items-center justify-content-center shadow-sm' : 'text-muted'" style="width: 24px; height: 24px; transition: all 0.3s;">{{ day.dayNumber }}</span>
+                            <transition name="fade">
+                                <span v-if="day.totalShifts > 0" class="badge bg-body border text-muted" style="font-size: 0.65rem; border-color: var(--border-color) !important;"><i data-lucide="users" style="width: 10px;"></i> {{ day.totalShifts }}</span>
+                            </transition>
+                        </div>
 
-                            <div class="d-flex align-items-center gap-3 mb-4">
-                                <div class="avatar-initials shadow-sm" style="width: 50px; height: 50px; font-size: 1.2rem;">{{ getInitials(getGuardName(shift.ID_Funcionario)) }}</div>
-                                <div>
-                                    <div class="fw-bold fs-5" style="color: var(--text-main); padding-right: 20px; line-height: 1.2;">{{ getGuardName(shift.ID_Funcionario) }}</div>
-                                    <div class="small mt-1 text-gold fw-bold"><i data-lucide="map-pin" style="width: 12px;"></i> {{ getLocationName(shift.ID_LocalEvento) }}</div>
+                        <div class="d-flex flex-column gap-1 overflow-hidden" style="max-height: 75px;">
+                            <transition-group name="fade-row">
+                                <div v-for="(ev, idx) in day.uniqueEvents.slice(0, 3)" :key="ev.locId + '-' + idx" class="badge bg-warning bg-opacity-10 text-warning border border-warning border-opacity-25 text-start text-truncate fw-normal px-2 py-1" style="font-size: 0.65rem;" :title="getLocationName(ev.locId)">
+                                    <span class="fw-bold">{{ ev.start }}</span> - {{ getLocationName(ev.locId) }}
                                 </div>
-                            </div>
+                            </transition-group>
+                        </div>
+
+                        <div class="mt-auto pt-1 text-center" v-if="day.uniqueEvents.length > 3">
+                            <small class="text-muted" style="font-size: 0.6rem;">+ {{ day.uniqueEvents.length - 3 }} OP(S)</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISÃO GRADE COM ANIMAÇÕES -->
+        <div v-else-if="scheduleViewMode === 'grid'" key="gridView">
+            <transition name="fade">
+                <div v-if="Object.keys(groupedShifts).length === 0" class="text-center py-5 text-muted mt-5">
+                    <i data-lucide="calendar-x" style="width: 48px; height: 48px; opacity: 0.5;" class="mb-3"></i>
+                    <h5>Nenhuma escala tática encontrada para o período filtrado.</h5>
+                </div>
+            </transition>
+
+            <div v-for="(locaisMap, date) in groupedShifts" :key="date" class="mb-5">
+                <h4 class="fw-bold mb-3 d-flex align-items-center gap-2 text-gold border-bottom pb-2" style="border-color: var(--border-color) !important;">
+                    <i data-lucide="calendar" style="width: 20px;"></i> {{ formatDateFull(date) }}
+                </h4>
+
+                <!-- Group de Transição (Cartões Flutuantes) -->
+                <transition-group name="card-list" tag="div" class="row g-3">
+                    <div v-for="(shiftsArray, localId) in locaisMap" :key="localId" class="col-12 col-xl-6">
+                        <div class="glass-panel p-0 rounded-3 overflow-hidden shadow-sm h-100 d-flex flex-column border hover-lift" style="border-color: var(--border-color) !important;">
                             
-                            <div class="bg-body p-2 rounded mb-3 text-center border" style="border-color: var(--border-color) !important;">
-                                <span class="small fw-bold text-muted text-uppercase">Função:</span> <span class="fw-bold" style="color: var(--text-main);">{{ shift.Funcao || 'Vigilante' }}</span>
+                            <div class="p-3 bg-surface border-bottom d-flex justify-content-between align-items-center" style="border-color: var(--border-color) !important;">
+                                <div class="d-flex align-items-center gap-3">
+                                    <div class="rounded-circle bg-body d-flex align-items-center justify-content-center text-gold border shadow-sm" style="width: 38px; height: 38px; border-color: var(--border-color) !important;">
+                                        <i data-lucide="map-pin" style="width: 16px;"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="fw-bold text-main mb-0">{{ getLocationName(localId) }}</h6>
+                                        <small class="text-muted font-monospace" style="font-size: 0.7rem;">ID: {{ localId.substring(0,8) }}</small>
+                                    </div>
+                                </div>
+                                
+                                <button @click="generatePDFLocal(date, localId, shiftsArray)" class="btn btn-sm btn-danger bg-opacity-10 text-danger border-danger border-opacity-50 hover-bg-danger hover-text-white fw-bold d-flex align-items-center gap-2 transition btn-anim" title="Gerar Ordem de Serviço em PDF">
+                                    <i data-lucide="file-down" style="width: 14px;"></i> GERAR O.S.
+                                </button>
                             </div>
 
-                            <div class="mt-auto d-flex justify-content-between align-items-end pt-3 border-top" style="border-color: var(--border-color) !important;">
-                                <span v-if="shift.Status === 'Cancelado'" class="badge bg-danger bg-opacity-25 text-danger border border-danger px-2 py-1">CANCELADO</span>
-                                <span v-else class="badge bg-body text-muted border border-secondary border-opacity-25 px-2 py-1 text-uppercase">{{ shift.Status }}</span>
-                                <div class="font-monospace fw-bold px-3 py-1 rounded-pill" style="background-color: var(--bg-body); color: var(--rincon-gold); border: 1px solid var(--border-color);">
-                                    <i data-lucide="clock" style="width: 12px; margin-right: 4px;"></i> {{ shift.Horario_Entrada }} - {{ shift.Horario_Saida }}
+                            <div class="p-0 flex-grow-1 bg-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover align-middle m-0" style="color: var(--text-main); --bs-table-bg: transparent;">
+                                        <thead class="text-muted border-bottom bg-surface" style="border-color: var(--border-color) !important; font-size: 0.75rem;">
+                                            <tr>
+                                                <th class="ps-3 py-2 text-uppercase">Agente</th>
+                                                <th class="py-2 text-uppercase">Função</th>
+                                                <th class="py-2 text-uppercase">Horário</th>
+                                                <th class="text-end pe-3 py-2 text-uppercase">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <transition-group name="fade-row" tag="tbody">
+                                            <tr v-for="shift in shiftsArray" :key="shift.ID_Escala" style="border-color: var(--border-color);">
+                                                <td class="ps-3 fw-bold py-2" style="font-size: 0.85rem;">{{ getGuardName(shift.ID_Funcionario) }}</td>
+                                                <td class="text-muted" style="font-size: 0.85rem;">{{ shift.Funcao || '--' }}</td>
+                                                <td class="font-monospace text-warning fw-bold" style="font-size: 0.85rem;">{{ shift.Horario_Entrada }} - {{ shift.Horario_Saida }}</td>
+                                                <td class="text-end pe-3">
+                                                    <button @click="editShift(shift)" class="btn btn-link text-muted p-1 m-0 hover-text-gold me-1 btn-anim" title="Editar"><i data-lucide="pencil" style="width: 14px;"></i></button>
+                                                    <button @click="changeShiftStatus(shift.ID_Escala, 'Cancelado')" class="btn btn-link text-danger p-1 m-0 btn-anim" title="Cancelar este Turno"><i data-lucide="x-circle" style="width: 14px;"></i></button>
+                                                </td>
+                                            </tr>
+                                        </transition-group>
+                                    </table>
                                 </div>
+                            </div>
+
+                            <div class="p-2 bg-surface border-top small text-muted d-flex gap-3 px-3 align-items-center" style="border-color: var(--border-color) !important; font-size: 0.75rem;">
+                                <span><i data-lucide="shirt" style="width: 12px; margin-right: 4px; color: var(--rincon-gold);"></i> Uniforme: {{ shiftsArray[0].Uniforme || 'Padrão' }}</span>
+                                <span><i data-lucide="users" style="width: 12px; margin-right: 4px; color: var(--rincon-gold);"></i> {{ shiftsArray.length }} Efetivo(s)</span>
+                                <span v-if="shiftsArray[0].Contato" class="ms-auto text-truncate" style="max-width: 150px;" :title="shiftsArray[0].Contato"><i data-lucide="phone" style="width: 12px; margin-right: 4px; color: var(--rincon-gold);"></i> {{ shiftsArray[0].Contato }}</span>
                             </div>
                         </div>
                     </div>
                 </transition-group>
             </div>
         </div>
-    </div>
 
-    <div v-show="scheduleViewMode === 'calendar'" class="glass-panel p-4 rounded-3">
-        <div id="calendar" style="min-height: 650px;"></div>
-    </div>
+    </transition>
 </div>
